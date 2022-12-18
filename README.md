@@ -1,3 +1,3 @@
-# Tasks
+# Magic
 
-- [] # OrbisXLit
+Magic is powered by Orbis Protocol and Lit Protocol
