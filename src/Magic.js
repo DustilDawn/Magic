@@ -15,6 +15,7 @@ export class Magic extends PKPWallet {
 
     sendAsync = this.handler;
     send = this.handler;
+    request = this.handler;
 
     async handler(payload) {
         if (payload.method === 'eth_chainId') {

@@ -1,4 +1,4 @@
-import { Orbis } from "./orbis-sdk";
+import { Orbis } from "orbis-sdk";
 import LitJsSdk from "lit-js-sdk";
 import { useEffect, useState } from 'react';
 
@@ -28,6 +28,7 @@ function App() {
   const [chain, setChain] = useState('mumbai');
   const [address, setAddress] = useState();
   const [pkps, setPkps] = useState();
+  const [authorizedPkps, setAuthorizedPkps] = useState();
   const [orbis, setOrbis] = useState();
   const [lit, setLit] = useState();
   const [provider, setProvider] = useState(new ethers.providers.JsonRpcProvider('https://rpc-mumbai.maticvigil.com'));
@@ -48,6 +49,9 @@ function App() {
   const [flip, setFlip] = useState(false);
   const [clipboard, setClipboard] = useState(0);
   const [viewType, setViewType] = useState(0);
+  const [authorizingMsg, setAuthorizingMsg] = useState('Authorizing...');
+  const [unauthorizingMsg, setUnauthorizingMsg] = useState('Unauthorizing...');
+  const [switching, setSwitching] = useState(false);
 
   useEffect(() => {
 
@@ -177,29 +181,20 @@ function App() {
       let cost = await contract.mintCost();
       let mint = await contract.mintNext(2, { value: cost.toString() });
       console.log("mint:", mint);
-      await getPKPs(address);
 
+      let wait = await mint.wait();
+      console.log("wait:", wait);
+
+      await getPKPs(address);
 
       console.log("Done!");
       setSuccess("PKP minted successfully! Go back to the main page to see it.");
 
       // await 2 seconds
-
       await new Promise(r => setTimeout(r, 2000));
       setActivePage(0);
-      var scroll = document.getElementsByClassName('scroll-container')[0];
-      var card = document.getElementsByClassName('credit-card')[pkps.length - 1];
-      console.log("scroll:", scroll);
-      console.log("card:", card);
-
-      var paddingLeft = 34;
-
-      scrollEaseIn(scroll, {
-        start: 0,
-        end: card.offsetLeft - paddingLeft,
-        ms: 1000,
-      });
-
+      setSelectedCardIndex(pkps.length)
+      scrollToCard(pkps.length, { ms: 1000 });
 
     } catch (e) {
       console.log(e);
@@ -225,12 +220,19 @@ function App() {
     return client;
   }
 
-  async function getPKPs(controller, { remove, refetchAuthorizedAccounts } = {}) {
+  // get pkps
+  async function getPKPs(controller, { remove, refetchAuthorizedAccounts, refetch = false } = {}) {
 
     console.log("getting pkps...");
 
-    let storagePkps = JSON.parse(localStorage.getItem('magic-pkps'));
-    console.log("storagePkps:", storagePkps);
+    let storagePkps;
+
+    try {
+      storagePkps = JSON.parse(localStorage.getItem('magic-pkps'))[controller];
+      console.log("storagePkps:", storagePkps);
+    } catch (e) {
+      console.log("no pkps in storage");
+    }
 
     if (remove) {
       // find a token id in the array and remove it
@@ -241,10 +243,6 @@ function App() {
       localStorage.setItem('magic-pkps', JSON.stringify(storagePkps));
     }
 
-    // wait 5 seconds
-    // await new Promise(r => setTimeout(r, 2000));
-    // console.log("storagePkps:", storagePkps[0]);
-    // return;
     if (!controller) {
       throw Error('controller not set');
     }
@@ -270,15 +268,19 @@ function App() {
       try {
 
         if (storagePkps && storagePkps[i]) {
-          console.log("from storage")
+          console.log("using the one in storage")
           tokenId = storagePkps[i].tokenId;
           pubKey = storagePkps[i].pubKey;
           address = storagePkps[i].address;
           authorizedAccounts = storagePkps[i].authorizedAccounts;
         } else {
-          console.log("fetch storage")
+          console.log("fetching new pkp from ", controller)
           pkp = await contract.tokenOfOwnerByIndex(controller, i);
+          console.log("pkp:", pkp);
+
           tokenId = pkp.toString();
+          console.log("tokenId:", tokenId);
+
           pubKey = await contractRouter.getPubkey(tokenId);
           console.log("Getting authorized accounts...");
           authorizedAccounts = await contracts.pkpPermissionsContract.read.getPermittedAddresses(tokenId);
@@ -299,11 +301,19 @@ function App() {
       }
     }
 
-    console.log("pkps:", pkps)
+    console.log("pkps:", pkps);
 
     setPkps(pkps);
 
-    localStorage.setItem('magic-pkps', JSON.stringify(pkps));
+    try {
+      let storage = JSON.parse(localStorage.getItem('magic-pkps'));
+
+      storage[controller] = pkps;
+
+      localStorage.setItem('magic-pkps', JSON.stringify(storage));
+    } catch (e) {
+      console.log("no storage");
+    }
 
     console.log("got pkps");
     return pkps;
@@ -365,9 +375,67 @@ function App() {
     await orbis.connect_pkp(magicWallet);
 
     if (payload.method === 'create_post') {
-      let createPost = await orbis.createPost({ body: payload.data });
+      let res = await orbis.createPost({ body: payload.data });
       console.log(createPost);
-      return;
+      return res;
+
+    } else if (payload.method === 'create_conversation') {
+      let res = await orbis.createConversation(payload.data);
+      console.log(res);
+      return res;
+    } else if (payload.method === 'send_message') {
+      let res = await orbis.sendMessage(payload.data);
+      console.log(res);
+      return res;
+    } else if (payload.method === 'follow') {
+      let res = await orbis.setFollow(payload.data, true);
+      console.log(res);
+      return res;
+    } else if (payload.method === 'unfollow') {
+      let res = await orbis.setFollow(payload.data, false);
+      console.log(res);
+      return res;
+    } else if (payload.method === 'get_conversations') {
+      let res = await orbis.getConversations({
+        did: payload.data,
+      });
+      console.log(res);
+      return res;
+    } else if (payload.method === 'notify_authorized') {
+
+      console.log("~~~ NOTIFY AUTHORIZED ~~~ ");
+
+      // message
+      const MSG = `${payload.data.authorizeAccount}\nhas been permitted to use\n${payload.data.tokenId}`;
+      const did = `did:pkh:eip155:1:${payload.data.authorizeAccount.toLowerCase()}`;
+
+      console.log("MSG:", MSG);
+      console.log("did:", did);
+
+      let res1 = await orbis.createConversation({
+        recipients: [did],
+        name: 'PKP Authorized',
+        description: MSG
+      });
+
+      console.warn("res1:", res1);
+
+    } else if (payload.method === 'notify_unauthorized') {
+
+      console.log("~~~ NOTIFY UNAUTHORIZED ~~~");
+
+      // message
+      const MSG = `${payload.data.authorizeAccount}\nhas been removed to use\n${payload.data.tokenId}`;
+      const did = `did:pkh:eip155:1:${payload.data.authorizeAccount.toLowerCase()}`;
+
+      let res1 = await orbis.createConversation({
+        recipients: [did],
+        name: 'PKP Unauthorized',
+        description: MSG
+      });
+
+      console.warn("res1:", res1);
+
 
     } else {
       throw new Error('method not found');
@@ -420,6 +488,113 @@ function App() {
 
   }
 
+  async function getConversations() {
+
+    let { data, error } = await orbis.getConversations({
+      did: user,
+    });
+
+    if (error) throw new Error(error);
+
+    data.forEach(msg => {
+      // let payload = msg.content.description.split('\n');
+      let payload = msg.content.description;
+      let date = new Date(msg.last_message_timestamp * 1000);
+
+      // format date to hours:minutes:seconds
+      date = date.toLocaleTimeString();
+
+
+      console.log(`Data: ${date}
+payload: ${payload}
+      `)
+    })
+  }
+
+  async function getPermittedPKPs() {
+
+    let { data, error } = await orbis.getConversations({
+      did: user,
+    });
+
+    if (error) throw new Error(error);
+
+    var permittedTokens = [];
+
+    data.forEach(msg => {
+      // let payload = msg.content.description.split('\n');
+      let payload = msg.content.description;
+      let timestamp = msg.last_message_timestamp;
+
+      let authorizedAddress = payload.split('\n')[0];
+      let tokenId = payload.split('\n')[2];
+
+      if (authorizedAddress !== 'undefined' && tokenId !== 'undefined') {
+        if (authorizedAddress === address) {
+
+          permittedTokens.push({
+            state: payload.split('\n')[1] === 'has been permitted to use' ? true : false,
+            tokenId: tokenId,
+            timestamp
+          });
+        }
+      }
+    })
+
+    // filter unique tokens by last timestamp
+    let filtered = permittedTokens.filter((thing, index, self) =>
+      index === self.findIndex((t) => (
+        t.tokenId === thing.tokenId
+      ))
+    )
+
+    var list = [];
+
+    // for each permitted token, check if there's a token where its state is false and timestamp is greater than the current one
+    filtered.forEach(token => {
+      let found = permittedTokens.find(t => t.tokenId === token.tokenId && t.state === false);
+
+      if (found.state === false && found.timestamp > token.timestamp) {
+        return;
+      }
+
+      if (token.state) {
+        list.push(token);
+      }
+    })
+
+    let contract = new ethers.Contract(smartContracts.pkp, smartContracts.pkpAbi, provider);
+    let contractRouter = new ethers.Contract(smartContracts.router, smartContracts.routerAbi, provider);
+    let contracts = new LitContracts();
+    await contracts.connect();
+
+    let pkps = [];
+
+    // create a async for loop
+    for (let i = 0; i < list.length; i++) {
+
+      let pkp = list[i].tokenId;
+      let tokenId;
+      let pubKey;
+      let address;
+      let authorizedAccounts;
+      let did;
+
+      tokenId = pkp;
+      pubKey = await contractRouter.getPubkey(tokenId);
+      address = ethers.utils.computeAddress(pubKey);
+      authorizedAccounts = await contracts.pkpPermissionsContract.read.getPermittedAddresses(tokenId);
+      did = 'did:pkh:eip155:1:' + address.toLowerCase();
+
+      pkps.push({ tokenId, pubKey, address, authorizedAccounts, did });
+    }
+
+    console.log("list:", list);
+    console.log("pkps:", pkps);
+
+    return pkps;
+  }
+
   function getCurrentTime() {
     // get current time in the format of hh:mm
     let date = new Date();
@@ -446,6 +621,7 @@ function App() {
     if (!authorizeAccount) {
       return
     }
+
     setSuccess(null)
     setError(null)
     console.log("onAuthorize:", authorizeAccount);
@@ -453,17 +629,30 @@ function App() {
     setAuthorizing(true);
 
     try {
+
       let tx = await contracts.pkpPermissionsContract.write.addPermittedAddress(pkps[selectedCardIndex].tokenId, authorizeAccount, []);
       let result = await tx.wait();
       console.log(result);
+      setAuthorizingMsg('Updating PKPs...')
       await getPKPs(address, { refetchAuthorizedAccounts: true });
 
+      // notify
+      setAuthorizingMsg('Notifying user...')
+      await magicActionHandler({
+        method: 'notify_authorized', data: {
+          authorizeAccount,
+          tokenId: pkps[selectedCardIndex].tokenId,
+        }
+      });
+      setAuthorizingMsg('Finishing up...')
       setSuccess(`${authorizeAccount} has been authorized!`);
 
       // await 2 seconds
       await new Promise(r => setTimeout(r, 2000));
+
       setSuccess(null);
       setActivePage(0);
+      setAuthorizingMsg('Authorizing...')
     } catch (e) {
       setError(e.message);
       setAuthorizing(false);
@@ -472,13 +661,12 @@ function App() {
       await new Promise(r => setTimeout(r, 2000));
       setError(null);
     }
+
     setAuthorizing(false);
-
-    // console.log("tx:", tx);
-
   }
 
   async function onUnauthorize() {
+
     setSuccess(null)
     setError(null)
     console.log("selectedAuthorizedAccount:", selectedAuthorizedAccount);
@@ -489,13 +677,27 @@ function App() {
       let tx = await contracts.pkpPermissionsContract.write.removePermittedAddress(pkps[selectedCardIndex].tokenId, selectedAuthorizedAccount);
       let result = await tx.wait();
       console.log(result);
+      setUnauthorizingMsg('Updating PKPs...')
+
       await getPKPs(address, { refetchAuthorizedAccounts: true });
+
+      // notify
+      setUnauthorizingMsg('Notifying user...')
+      await magicActionHandler({
+        method: 'notify_unauthorized', data: {
+          authorizeAccount: selectedAuthorizedAccount,
+          tokenId: pkps[selectedCardIndex].tokenId,
+        }
+      });
+
       setSuccess(`${selectedAuthorizedAccount} has been unauthorized!`);
 
       // await 2 seconds
       await new Promise(r => setTimeout(r, 2000));
+
       setSuccess(null);
       setActivePage(0);
+      setUnauthorizingMsg('Unauthorizing...')
     } catch (e) {
       setError(e.message);
       setUnauthorizing(false);
@@ -505,6 +707,7 @@ function App() {
       setError(null);
       setActivePage(0);
     }
+
 
     setUnauthorizing(false);
   }
@@ -538,6 +741,11 @@ function App() {
       callback();
       clearInterval(intervalId);
     }, 5000);
+  }
+
+  async function getPermitted() {
+    let result = await contracts.pkpPermissionsContract.read.getPermittedAddresses(pkps[selectedCardIndex].tokenId);
+    console.log(result);
   }
 
   return (
@@ -581,87 +789,79 @@ function App() {
 
                   <div className="page-header">
                     <div className="spread view-type">
-                      <h2 className={`view-type-h2 ${viewType === 0 ? 'active' : ''}`} onClick={() => setViewType(0)}><span>Your Accounts</span></h2>
-                      <h6 className={`view-type-h6 ${viewType === 1 ? 'active' : ''}`} onClick={() => setViewType(1)}><span>Authorized</span></h6>
+                      <h6 className={`view-type-h6 ${viewType === 0 ? 'active' : ''}`} onClick={() => setViewType(0)}><span>Your Accounts</span></h6>
+                      <h6 className={`view-type-h6 ${viewType === 1 ? 'active' : ''}`} onClick={async () => {
+                        setViewType(1);
+                        setSwitching(true);
+                        var tokens = await getPermittedPKPs();
+                        setAuthorizedPkps(tokens);
+                        setSwitching(false);
+                      }}><span>Authorized</span></h6>
                     </div>
                     <Icon onClick={addWallet} name="add" />
 
                   </div>
 
                   <ScrollContainer className="scroll-container">
-                    <div className="cards">
+                    <div className={`${switching ? 'switching' : ''} cards`}>
                       {
-                        !pkps ? <Loading /> : pkps.map((pkp, i) => {
+                        (viewType === 0 && !pkps) || (viewType === 1 && !authorizedPkps) || (switching) ?
+                          <Loading /> :
+                          (viewType === 0 ? pkps : authorizedPkps).map((pkp, i) => {
 
-                          // get random value between 0 to 15
-                          // let random = Math.floor(Math.random() * 16);
+                            return <div className={`credit-card ${(selectedCardIndex === i && flip) ? 'flip' : ''} gradient-${i} ${selectedCardIndex === i ? 'active' : ''}`} key={i}>
 
-                          return <div className={`credit-card ${(selectedCardIndex === i && flip) ? 'flip' : ''} gradient-${i} ${selectedCardIndex === i ? 'active' : ''}`} key={i}>
+                              <div className="cc-tap-to-select" onClick={() => {
+                                setSelectedCardIndex(i);
+                                setFlip(false);
+                                scrollToCard(i, { ms: 300 });
+                              }}>
+                                <Icon name="tap" />
+                              </div>
 
-                            <div className="cc-tap-to-select" onClick={() => {
-                              setSelectedCardIndex(i);
-                              setFlip(false);
-                              scrollToCard(i, { ms: 300 });
-                            }}>
-                              <Icon name="tap" />
+                              {
+                                !(selectedCardIndex === i && flip) ?
+                                  // front card
+                                  <>
+                                    <div className="cc-logo">
+                                      <Logo brand="lit" />
+                                    </div>
+                                    <div className='cc-number' onClick={() => copyToClipboard(pkp.did)}>
+                                      <div className={`copied ${clipboard === pkp.did ? 'active' : ''}`}>Copied</div>
+                                      {pkp.did}
+                                    </div>
+                                  </> :
+                                  // back card
+                                  <div className="cc-back">
+                                    <div className="cc-token">
+                                      <div className="cc-token-name">Token ID</div>
+                                      <div className="cc-token-addr" onClick={() => copyToClipboard(pkp.tokenId)}>
+                                        <div className={`copied ${clipboard === pkp.tokenId ? 'active' : ''}`}>Copied</div>
+                                        {pkp.tokenId}
+                                      </div>
+                                    </div>
+                                    <div className="cc-token">
+                                      <div className="cc-token-name">Public Key</div>
+                                      <div className="cc-token-addr" onClick={() => copyToClipboard(pkp.pubKey)}>
+                                        <div className={`copied ${clipboard === pkp.pubKey ? 'active' : ''}`}>Copied</div>
+                                        {pkp.pubKey}
+                                      </div>
+                                    </div>
+                                  </div>
+                              }
                             </div>
-
-
-                            {/* <div className="shadowed-lg"> */}
-                            {
-                              !(selectedCardIndex === i && flip) ?
-                                // front
-                                <>
-                                  <div className="cc-logo">
-                                    <Logo brand="lit" />
-                                  </div>
-                                  <div className='cc-number' onClick={() => copyToClipboard(pkp.did)}>
-                                    <div className={`copied ${clipboard === pkp.did ? 'active' : ''}`}>Copied</div>
-                                    {pkp.did}
-                                  </div>
-                                </> :
-                                // back
-                                <div className="cc-back">
-
-                                  <div className="cc-token">
-                                    <div className="cc-token-name">Token ID</div>
-                                    <div className="cc-token-addr" onClick={() => copyToClipboard(pkp.tokenId)}>
-                                      <div className={`copied ${clipboard === pkp.tokenId ? 'active' : ''}`}>Copied</div>
-                                      {pkp.tokenId}
-                                    </div>
-                                  </div>
-                                  <div className="cc-token">
-                                    <div className="cc-token-name">Public Key</div>
-                                    <div className="cc-token-addr" onClick={() => copyToClipboard(pkp.pubKey)}>
-                                      <div className={`copied ${clipboard === pkp.pubKey ? 'active' : ''}`}>Copied</div>
-                                      {pkp.pubKey}
-                                    </div>
-                                  </div>
-                                </div>
-                            }
-
-                            {/* </div> */}
-                            {/* <div className="cc-authorized">
-                              <section>
-                                <img src="fingerprint.png" />
-                                <div className="cc-authorized-text">
-                                  {pkp.authorizedAccounts.length - 1} authorized account
-                                  {(pkp.authorizedAccounts.length - 1) > 1 ? 's' : ''}
-                                </div>
-                 
-
-                              </section>
-                            </div> */}
-                          </div>
-                        })
+                          })
                       }
 
-                      <div className="credit-card credit-card-add" onClick={addWallet} >
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="48px" height="48px">
-                          <path d="M0 0h24v24H0z" fill="none" />
-                          <path d="M19 13H13v6h-2v-6H5v-2h6V5h2v6h6v2z" />
-                        </svg>
-                      </div>
+                      {
+                        viewType === 0 ?
+                          <div className="credit-card credit-card-add" onClick={addWallet} >
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="48px" height="48px">
+                              <path d="M0 0h24v24H0z" fill="none" />
+                              <path d="M19 13H13v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+                            </svg>
+                          </div> : ''
+                      }
 
                     </div>
                   </ScrollContainer>
@@ -693,9 +893,9 @@ function App() {
                     <div className="content-page actions">
                       <div className="spread content-header">
                         <h5><span>Actions</span></h5>
-                        <Icon onClick={() => {
+                        {/* <Icon onClick={() => {
                           setActivePage('io')
-                        }} name="add" />
+                        }} name="add" /> */}
                       </div>
 
                       {/* Here's a list of actions you can perform with your account. */}
@@ -729,10 +929,10 @@ function App() {
                         {
                           !pkps ? '' : pkps[selectedCardIndex]?.authorizedAccounts.map((account, i) => {
 
-                            if (account === address) return <></>;
+                            if (account === address) return <div key={i}></div>;
 
                             return (
-                              <>
+                              <div key={i}>
                                 <div className="row" onClick={() => {
                                   setActivePage('psaa');
                                   setSelectedAuthorizedAccount(account);
@@ -750,7 +950,7 @@ function App() {
                                     {account}
                                   </div>
                                 </div>
-                              </>
+                              </div>
                             )
                           })
                         }
@@ -766,7 +966,7 @@ function App() {
           }
 
           {/* page-x */}
-          <div className={`page page-x ${activePage}`}>
+          <div className={`page page-pop page-x ${activePage}`}>
             <div className="text text-red cursor" onClick={() => setActivePage(0)}>Cancel</div>
             <div className="page-center">
               <h1><span>Add new Wallet</span></h1>
@@ -790,7 +990,7 @@ function App() {
           </div>
 
           {/* page-selected-authorized-account */}
-          <div className={`page page-selected-authorized-account ${activePage}`}>
+          <div className={`page page-pop page-selected-authorized-account ${activePage}`}>
             <div className="text text-red cursor" onClick={() => {
               setActivePage(0);
               setSelectedAuthorizedAccount(null);
@@ -818,7 +1018,7 @@ function App() {
                 unauthorizing ? <div className="loading-with-text">
                   <div className="separator-sm"></div>
                   <Loading />
-                  <span>Unauthorizing...</span>
+                  <span>{unauthorizingMsg}</span>
                   <div className="separator-sm"></div>
                 </div> : ''
               }
@@ -869,7 +1069,7 @@ function App() {
                     authorizing ? <div className="loading-with-text">
                       <div className="separator-sm"></div>
                       <Loading />
-                      <span>Authorizing...</span>
+                      <span>{authorizingMsg}</span>
                       <div className="separator-sm"></div>
                     </div> : ''
                   }
@@ -1003,6 +1203,7 @@ function App() {
             !lit ? '' : <>
               ---<br />
               <a className='App-link' onClick={() => getPKPs(address)}>-{">"} Get PKPs</a><br />
+              <a className='App-link' onClick={() => getPermitted()}>-{">"} Get Permitted</a><br />
               <a className='App-link' onClick={runLitAction}>-{">"} Run Lit Action</a><br />
               <a className='App-link' onClick={getCode}>-{">"} Get Lit Action</a><br />
               <a className='App-link' onClick={connectPKP}>-{">"} Connect PKP</a><br />
@@ -1022,7 +1223,9 @@ function App() {
                 ---<br />
                 <a className='App-link' onClick={createPost}>-{">"} Create Post</a><br />
                 <a className='App-link' onClick={editPost}>-{">"} Edit Post</a><br />
-                <a className='App-link' onClick={getPosts}>-{">"} Get Posts</a>
+                <a className='App-link' onClick={getPosts}>-{">"} Get Posts</a><br />
+                <a className='App-link' onClick={getConversations}>-{">"} Get Conversations</a><br />
+                <a className='App-link' onClick={getPermittedPKPs}>-{">"} Get Permitted Tokens</a>
               </>
           }
         </div>

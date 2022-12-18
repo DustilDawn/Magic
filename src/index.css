@@ -170,9 +170,9 @@ a {
 .user {
   position: absolute;
   top: 16px;
-  right: 1rem;
+  right: 18px;
   border: 1px solid var(--color-primary);
-  border-radius: 20px;
+  border-radius: 5px;
   padding-left: 4px;
   padding-right: 4px;
   padding-top: 4px;
@@ -295,6 +295,7 @@ span.inactive {
   aspect-ratio: 3/4;
   /* border: 1px solid transparent */
   transition: 0.3s all ease-in-out;
+  max-width: 100px;
 }
 .flip.credit-card {
   transform: rotateY(180deg);
@@ -479,6 +480,7 @@ span.inactive {
   justify-content: center;
   flex-direction: column;
   cursor: pointer;
+  width: 0;
 }
 .credit-card-add:hover {
   border: 1px solid #fe9e61;
@@ -689,8 +691,15 @@ table {
   padding-right: 1rem;
   box-sizing: border-box;
   margin-right: 24px;
+  min-height: 205px;
 }
-
+.switching.cards {
+  display: flex;
+  justify-content: center;
+  margin: auto;
+  align-items: center;
+  min-height: 205px;
+}
 .login {
   display: flex;
   justify-content: center;
@@ -725,6 +734,13 @@ table {
   transform: translateY(7vh);
 }
 
+.page-pop {
+  padding-left: 24px;
+  padding-right: 24px;
+  height: 764px;
+  padding-bottom: 24px;
+  box-sizing: border-box;
+}
 /* page-x */
 .page-x {
   transform: translateY(100vh);
@@ -946,4 +962,14 @@ canvas.identicon {
 .page-header svg,
 .content-header svg:hover {
   fill: var(--color-primary);
+}
+.view-type-h6 {
+  border-bottom: 2px solid transparent;
+}
+
+.active.view-type-h6 {
+  border-bottom: 2px solid var(--color-primary);
+}
+.disabled {
+  color: gray;
 }
