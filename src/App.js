@@ -47,6 +47,7 @@ function App() {
   const [contentIndex, setContentIndex] = useState(0);
   const [flip, setFlip] = useState(false);
   const [clipboard, setClipboard] = useState(0);
+  const [viewType, setViewType] = useState(0);
 
   useEffect(() => {
 
@@ -561,7 +562,7 @@ function App() {
                   <div className="button" onClick={connect}>Connect</div>
                 </div>
                 <div className={`login-loading ${loading ? 'active' : ''}`}>
-                  <div className="separator"></div>
+                  {/* <div className="separator"></div> */}
                   <Loading />
                 </div>
               </div>
@@ -569,7 +570,6 @@ function App() {
               <div className={`page page-main page-has-inner ${activePage}`}>
 
                 <section>
-                  <div className="separator-md"></div>
                   {/* <h6 className="center"><span>Account Manager</span></h6> */}
 
                   <div className='text user'><span>did:pkh:eip155:1:{short(user.split(':')[4], 6, 4, '...') ?? '[please connect orbis]'}</span></div>
@@ -581,10 +581,9 @@ function App() {
 
                   <div className="page-header">
                     <div className="spread view-type">
-                      <h2><span>Your Accounts</span></h2>
-                      <h6>Permitted</h6>
+                      <h2 className={`view-type-h2 ${viewType === 0 ? 'active' : ''}`} onClick={() => setViewType(0)}><span>Your Accounts</span></h2>
+                      <h6 className={`view-type-h6 ${viewType === 1 ? 'active' : ''}`} onClick={() => setViewType(1)}><span>Authorized</span></h6>
                     </div>
-                    {/* <Icon name="plus" onClick={addWallet} /> */}
                     <Icon onClick={addWallet} name="add" />
 
                   </div>
@@ -981,6 +980,10 @@ function App() {
               <tr>
                 <th>contentIndex:</th>
                 <td>{contentIndex}</td>
+              </tr>
+              <tr>
+                <th>viewType:</th>
+                <td>{viewType}</td>
               </tr>
             </tbody>
           </table>

@@ -78,7 +78,6 @@ a {
   background-color: black;
 }
 .page {
-  padding: 1rem;
   position: absolute;
   top: 0;
   left: 0;
@@ -87,6 +86,7 @@ a {
   box-sizing: border-box;
   background-color: #282c34;
   border-radius: 20px;
+  padding-top: 16px;
 }
 
 .App-logo {
@@ -169,7 +169,7 @@ a {
 }
 .user {
   position: absolute;
-  top: 0.9rem;
+  top: 16px;
   right: 1rem;
   border: 1px solid var(--color-primary);
   border-radius: 20px;
@@ -356,20 +356,11 @@ span.inactive {
   text-align: left;
 }
 .cc-number {
-  font-size: 15px;
+  font-size: 13px;
   text-align: right;
   word-wrap: break-word;
-  /* position: absolute; */
-  width: calc((33vmin - 2rem));
-  /* width: calc((33vmin - 2rem) / 2); */
   right: 1rem;
-  /* height: 57px; */
-  /* margin-top: calc(((23vmin - 4rem) / 2) - (38px / 2)); */
-  /* background-color: red; */
-  /* margin-top: 2vmin; */
   width: 100%;
-  padding-top: 4px;
-  padding-bottom: 4px;
   position: absolute;
   bottom: 0;
   left: 0;
@@ -377,7 +368,7 @@ span.inactive {
   box-sizing: border-box;
   cursor: pointer;
 }
-.cc-number .active.copied{
+.cc-number .active.copied {
   right: 12px;
   top: -4px;
   font-size: 12px;
@@ -419,23 +410,23 @@ span.inactive {
   border-radius: 4px;
   position: relative;
 }
-.cc-back{
+.cc-back {
   position: relative;
 }
-.copied{
+.copied {
   background: green;
   padding: 1px 4px;
   position: absolute;
   display: none;
 }
-.active.copied{
+.active.copied {
   display: block;
 }
-.cc-back .copied{
+.cc-back .copied {
   top: 0;
   right: 0;
 }
-.cc-token:hover{
+.cc-token:hover {
   background: rgba(0, 0, 0, 0.167);
 }
 .cc-token-name {
@@ -527,8 +518,8 @@ span.inactive {
 }
 .content-page {
   width: 100%;
-  padding-right: 18px;
-  margin-top: 24px;
+  padding-right: 24px;
+  margin-top: 5px;
 }
 .actions section {
   display: grid;
@@ -693,13 +684,11 @@ table {
   width: 100%;
 }
 .scroll-container {
-  /* padding: 2vmin; */
   padding-top: 0;
-  /* transform: translateX(-2vmin); */
   padding-bottom: 0;
   padding-right: 1rem;
   box-sizing: border-box;
-  margin-right: 1rem;
+  margin-right: 24px;
 }
 
 .login {
@@ -709,13 +698,17 @@ table {
   align-items: center;
   transition: all 0.2s ease-in;
 }
-.active.login {
-  /* transform: scale(0.9); */
+.login p {
+  margin: 0;
+  margin-top: 0px;
+  margin-bottom: 12px;
 }
+
 .login-loading {
   visibility: hidden;
   height: 0;
   transition: all 0.2s ease-in;
+  margin-top: 16px;
 }
 .active.login-loading {
   visibility: visible;
@@ -749,20 +742,21 @@ table {
 .page-has-inner > section {
   padding-left: 1rem;
   padding-right: 1rem;
+  margin-bottom: 24px;
 }
 .page-inner {
   background: #282c34;
-  padding-left: 1rem;
+  padding-left: 24px;
   height: 100%;
-  padding-top: 2vmin;
+  padding-top: 14px;
   border-top-left-radius: 20px;
   border-top-right-radius: 20px;
 }
 .page-header {
   display: flex;
   justify-content: space-between;
-  margin-right: 1rem;
-  margin-bottom: 30px;
+  margin-right: 24px;
+  margin-bottom: 16px;
 }
 .page-center {
   display: flex;
@@ -853,7 +847,7 @@ canvas.identicon {
   border-radius: 5px;
 }
 .rows {
-  margin-top: 15px;
+  margin-top: 9px;
 }
 .row {
   font-size: 0.8rem;
@@ -887,6 +881,7 @@ canvas.identicon {
   align-items: center;
   gap: 18px;
   padding-right: 1rem;
+  margin-top: 2px;
 }
 .card-option-icon {
   width: 36px;
@@ -928,13 +923,18 @@ canvas.identicon {
   align-items: center;
   gap: 12px;
 }
+.view-type h2,
+.view-type h6 {
+  cursor: pointer;
+}
 .view-type h6 {
   color: #ffffff;
 }
 .content-header {
   height: 48px;
 }
-.page-header svg, .content-header svg {
+.page-header svg,
+.content-header svg {
   width: 24px;
   fill: var(--color-secondary);
   -webkit-appearance: none;
@@ -943,6 +943,7 @@ canvas.identicon {
   outline: none;
   cursor: pointer;
 }
-.page-header svg, .content-header svg:hover{
-  fill: var(--color-primary)
+.page-header svg,
+.content-header svg:hover {
+  fill: var(--color-primary);
 }
