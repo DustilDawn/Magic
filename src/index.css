@@ -555,11 +555,11 @@ span.inactive {
   margin-bottom: 12px;
   transition: all 0.2s ease-in-out;
 }
-.disabled.action {
+.disabled {
   opacity: 0.1;
   pointer-events: none;
 }
-.disabled.action:hover {
+.disabled:hover {
   opacity: 0.1;
 }
 .action:hover {
@@ -819,10 +819,33 @@ table {
   border-radius: 5px;
   box-sizing: border-box;
 }
-.io.page-input {
+.io.page-input,
+.btn-action-proof-post {
   opacity: 1;
   pointer-events: fill;
   /* transform: translateY(0); */
+}
+.page-input .button-cancel {
+  margin-left: 0px;
+  margin-right: 4px;
+}
+.page-input .button-brand-2 {
+  margin-right: 0px;
+  margin-left: 4px;
+}
+.page-input .button-group {
+  margin-bottom: 12px;
+}
+.example-format {
+  font-size: 10px;
+  word-wrap: break-word;
+  width: 100%;
+  background: rgba(0, 0, 0, 0.167);
+  padding: 12px;
+  box-sizing: border-box;
+  border-radius: 5px;
+  margin-top: 12px;
+  margin-bottom: 12px;
 }
 /* .page-x {
   transform: translateY(100vh);
@@ -914,8 +937,8 @@ canvas.identicon {
   opacity: 0.5;
 }
 .active.card-option-icon {
-  /* opacity: ; */
   border: 2px solid var(--color-primary);
+  box-shadow: 0px 0px 10px #f152b2;
 }
 .card-option span {
   font-size: 10px;
@@ -972,4 +995,19 @@ canvas.identicon {
 }
 .disabled {
   color: gray;
+}
+.page-input-result {
+  width: 100%;
+  word-wrap: break-word;
+  display: flex;
+  flex-direction: column;
+}
+.page-input-result a {
+  font-size: 12px;
+  color: #ffffff;
+  text-decoration: none;
+}
+.page-input-result a:hover{
+  text-decoration: underline;
+  color: #fe9e61;
 }

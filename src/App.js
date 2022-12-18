@@ -52,10 +52,42 @@ function App() {
   const [authorizingMsg, setAuthorizingMsg] = useState('Authorizing...');
   const [unauthorizingMsg, setUnauthorizingMsg] = useState('Unauthorizing...');
   const [switching, setSwitching] = useState(false);
+  const [proofPosting, setProofPosting] = useState(false);
+  const [proofPostingMessage, setProofPostingMessage] = useState('Posting Proof to Orbis...');
+  const [proofPostingResult, setProofPostingResult] = useState(null);
+
+  const [currentPKP, setCurrentPKP] = useState();
 
   useEffect(() => {
 
-    if (address && user && pkps && lit && orbis && !authorizing && !unauthorizing && !success && !error && !contracts) {
+    console.log("currentPKP:", currentPKP);
+    console.log("viewType:", viewType);
+    console.log("selectedCardIndex:", selectedCardIndex);
+
+    if (viewType !== null && selectedCardIndex !== null) {
+      console.log("THIS WORKS!");
+      console.log("pkps:", pkps);
+      console.log(("authorizedPkps:", authorizedPkps));
+
+      var _currentPKP;
+
+      if (viewType === 0) {
+        if (pkps) {
+          _currentPKP = pkps[selectedCardIndex]
+        }
+      } else if (viewType === 1) {
+        if (authorizedPkps) {
+          _currentPKP = authorizedPkps[selectedCardIndex];
+        }
+      }
+
+      console.log("_currentPKP:", _currentPKP);
+
+      setCurrentPKP(_currentPKP);
+
+    }
+
+    if (address && user && pkps && lit && orbis && !authorizing && !unauthorizing && !success && !error && !contracts & !currentPKP) {
       setLoggedIn(true);
       setActivePage(0);
       // setActivePage('x');
@@ -81,6 +113,13 @@ function App() {
       if (event.key === 'Escape') {
         event.preventDefault();
         setActivePage(0);
+
+        var timeout;
+        clearTimeout(timeout);
+
+        timeout = setTimeout(() => {
+          setProofPostingResult('');
+        }, 500)
       }
     };
 
@@ -91,7 +130,7 @@ function App() {
       document.removeEventListener('keydown', keyDownHandler);
     };
 
-  }, [address, user, pkps, lit, orbis, contracts])
+  }, [address, user, pkps, lit, orbis, contracts, selectedCardIndex, viewType])
 
   function scrollToCard(cardIndex, { start = 0, ms = 1000 }) {
 
@@ -274,17 +313,11 @@ function App() {
           address = storagePkps[i].address;
           authorizedAccounts = storagePkps[i].authorizedAccounts;
         } else {
-          console.log("fetching new pkp from ", controller)
+          console.log("fetching new pkp from", controller)
           pkp = await contract.tokenOfOwnerByIndex(controller, i);
-          console.log("pkp:", pkp);
-
           tokenId = pkp.toString();
-          console.log("tokenId:", tokenId);
-
           pubKey = await contractRouter.getPubkey(tokenId);
-          console.log("Getting authorized accounts...");
           authorizedAccounts = await contracts.pkpPermissionsContract.read.getPermittedAddresses(tokenId);
-          console.log("authorizedAccounts:", authorizedAccounts);
           address = ethers.utils.computeAddress(pubKey);
         }
 
@@ -304,8 +337,9 @@ function App() {
     console.log("pkps:", pkps);
 
     setPkps(pkps);
-
+    console.log("controller:", controller);
     try {
+      console.log("post set storage");
       let storage = JSON.parse(localStorage.getItem('magic-pkps'));
 
       storage[controller] = pkps;
@@ -313,6 +347,12 @@ function App() {
       localStorage.setItem('magic-pkps', JSON.stringify(storage));
     } catch (e) {
       console.log("no storage");
+      var usr = {
+
+      }
+      usr[controller] = pkps;
+
+      localStorage.setItem('magic-pkps', JSON.stringify(usr));
     }
 
     console.log("got pkps");
@@ -325,7 +365,7 @@ function App() {
 
     console.warn("------ connectPKP Called!-----");
 
-    const PKP_PUBKEY = pkps[selectedCardIndex].pubKey;
+    const PKP_PUBKEY = (viewType === 0 ? pkps : authorizedPkps)[selectedCardIndex].pubKey;
 
     const CONTROLLER_AUTHSIG = await LitJsSdk.checkAndSignAuthMessage({
       chain: "mumbai",
@@ -354,9 +394,28 @@ function App() {
     console.log("7. createPost:", createPost);
   }
 
+  async function onProofPost() {
+
+    // debug
+    setProofPosting(true);
+    setProofPostingMessage('Proof posting to Orbis...');
+    var res = await magicActionHandler({ method: 'proof_post' });
+    console.log(res.doc);
+
+    setProofPosting(false);
+    setProofPostingMessage();
+    setProofPostingResult(JSON.stringify({
+      profile: ``,
+      orbis: `https://app.orbis.club/post/${res.doc}`,
+      cerscan: `https://cerscan.com/mainnet/stream/${res.doc}`
+    }));
+
+    // real
+  }
+
   async function magicActionHandler(payload) {
 
-    const PKP_PUBKEY = pkps[selectedCardIndex].pubKey;
+    const PKP_PUBKEY = (viewType === 0 ? pkps : authorizedPkps)[selectedCardIndex].pubKey;
 
     const CONTROLLER_AUTHSIG = await LitJsSdk.checkAndSignAuthMessage({
       chain: "mumbai",
@@ -401,6 +460,18 @@ function App() {
       });
       console.log(res);
       return res;
+    } else if (payload.method === 'proof_post') {
+      var tokenId = (viewType === 0 ? pkps : authorizedPkps)[selectedCardIndex].tokenId;
+      let contractRouter = new ethers.Contract(smartContracts.router, smartContracts.routerAbi, provider);
+      var pubKey = await contractRouter.getPubkey(tokenId);
+      var pkpAddress = ethers.utils.computeAddress(pubKey);
+
+      const msg = `This post is created by a PKP\nTriggered by:${address}\nPKP Token ID:${tokenId}\nPKP Address:${pkpAddress}`;
+
+      let res = await orbis.createPost({ body: msg });
+      console.log(createPost);
+      return res;
+
     } else if (payload.method === 'notify_authorized') {
 
       console.log("~~~ NOTIFY AUTHORIZED ~~~ ");
@@ -554,7 +625,7 @@ payload: ${payload}
     filtered.forEach(token => {
       let found = permittedTokens.find(t => t.tokenId === token.tokenId && t.state === false);
 
-      if (found.state === false && found.timestamp > token.timestamp) {
+      if (found?.state === false && found.timestamp > token.timestamp) {
         return;
       }
 
@@ -791,11 +862,12 @@ payload: ${payload}
                     <div className="spread view-type">
                       <h6 className={`view-type-h6 ${viewType === 0 ? 'active' : ''}`} onClick={() => setViewType(0)}><span>Your Accounts</span></h6>
                       <h6 className={`view-type-h6 ${viewType === 1 ? 'active' : ''}`} onClick={async () => {
-                        setViewType(1);
                         setSwitching(true);
+                        setCurrentPKP(null);
                         var tokens = await getPermittedPKPs();
                         setAuthorizedPkps(tokens);
                         setSwitching(false);
+                        setViewType(1);
                       }}><span>Authorized</span></h6>
                     </div>
                     <Icon onClick={addWallet} name="add" />
@@ -803,7 +875,7 @@ payload: ${payload}
                   </div>
 
                   <ScrollContainer className="scroll-container">
-                    <div className={`${switching ? 'switching' : ''} cards`}>
+                    <div className={`cards ${switching ? 'switching' : ''}`}>
                       {
                         (viewType === 0 && !pkps) || (viewType === 1 && !authorizedPkps) || (switching) ?
                           <Loading /> :
@@ -854,19 +926,19 @@ payload: ${payload}
                       }
 
                       {
-                        viewType === 0 ?
+                        (viewType === 0 && !switching) ?
                           <div className="credit-card credit-card-add" onClick={addWallet} >
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="48px" height="48px">
                               <path d="M0 0h24v24H0z" fill="none" />
                               <path d="M19 13H13v6h-2v-6H5v-2h6V5h2v6h6v2z" />
                             </svg>
-                          </div> : ''
+                          </div> : <></>
                       }
 
                     </div>
                   </ScrollContainer>
 
-                  <div className="card-options">
+                  <div className={`card-options ${!currentPKP ? 'disabled' : ''}`}>
                     <div className="card-option">
                       <div onClick={() => setContentIndex(0)} className={`${contentIndex === 0 ? 'active' : ''} card-option-icon`}><Icon name="app" /></div>
                       <span>Actions</span>
@@ -881,18 +953,12 @@ payload: ${payload}
                     </div>
                   </div>
 
-                  {/* 
-                  <div className="tabs">
-                    <h5 onClick={() => setContentIndex(0)}><span className={`${contentIndex !== 0 ? 'inactive' : ''}`}>Actions</span></h5>
-                    <h5 onClick={() => setContentIndex(1)}><span className={`${contentIndex !== 1 ? 'inactive' : ''}`}>Authorized Accounts</span></h5>
-                  </div> */}
-
                   <div className={`content contentIndex-${contentIndex}`}>
 
                     {/* content index 1 */}
                     <div className="content-page actions">
                       <div className="spread content-header">
-                        <h5><span>Actions</span></h5>
+                        <h5><span className={`${!currentPKP ? 'disabled' : ''}`}>Actions</span></h5>
                         {/* <Icon onClick={() => {
                           setActivePage('io')
                         }} name="add" /> */}
@@ -901,9 +967,9 @@ payload: ${payload}
                       {/* Here's a list of actions you can perform with your account. */}
 
                       <section>
-                        <div onClick={() => magicActionHandler({ method: 'create_post', data: 'Testing!' })} className="action">
+                        <div onClick={() => setActivePage('btn-action-proof-post')} className={`action ${!currentPKP ? 'disabled' : ''}`}>
                           <img src="https://orbis.club/img/orbis-logo.png" alt="orbis" />
-                          <span>Orbis Post</span>
+                          <span>Proof Post</span>
                         </div>
                         <div className="action disabled">
                           <img src="https://orbis.club/img/orbis-logo.png" alt="orbis" />
@@ -1043,7 +1109,7 @@ payload: ${payload}
           </div>
 
 
-          {/* page-input */}
+          {/* add authorized account */}
           <div className={`page page-input ${activePage}`}>
 
             <div className="page-input-inner">
@@ -1088,6 +1154,82 @@ payload: ${payload}
                       {success}
                       <div className="separator-sm"></div>
                     </div> : ''
+                  }
+
+                </div>
+
+
+              </div>
+            </div>
+          </div>
+
+          {/* action handler */}
+          <div className={`page page-input ${activePage}`}>
+
+            <div className="page-input-inner">
+              {/* <div className="text text-red cursor" onClick={() => setActivePage(0)}>Cancel</div> */}
+
+              <div className="page-center">
+                <div className="separator-sm"></div>
+                <div className="">
+                  <h6 className="center"><span>Create a standard message to prove that this post was created by PKP.</span></h6>
+                </div>
+                <div className="separator-sm"></div>
+
+                <div className="input-group">
+                  {/* <input type="text" placeholder="0x..." value={authorizeAccount} onChange={(e) => setAuthorizeAccount(e.target.value)} /> */}
+
+                  {
+                    (pkps && address) ?
+                      <div className="example-format">
+                        This post is created by a PKP<br />
+                        Triggered by:{address}<br />
+                        PKP Token ID: {viewType === 0 ? pkps[selectedCardIndex]?.tokenId : authorizedPkps[selectedCardIndex]?.tokenId}<br />
+                        PKP Address: {viewType === 0 ? pkps[selectedCardIndex]?.address : authorizedPkps[selectedCardIndex]?.address}
+                      </div>
+                      : ''
+                  }
+
+                  <div className="button-group">
+                    <div className="button-cancel" onClick={() => setActivePage(0)}>Cancel</div>
+                    <div className="button-brand-2" onClick={() => onProofPost()}>Send</div>
+                  </div>
+
+                  {/* states */}
+                  {
+                    proofPosting ? <div className="loading-with-text">
+                      <div className="separator-sm"></div>
+                      <Loading />
+                      <span>{proofPostingMessage}</span>
+                      <div className="separator-sm"></div>
+                    </div> : ''
+                  }
+
+                  {
+                    error ? <div className="text text-red center">
+                      <div className="separator-sm"></div>
+                      {error}
+                      <div className="separator-sm"></div>
+                    </div> : ''
+                  }
+
+                  {
+                    success ? <div className="text text-green center">
+                      <div className="separator-sm"></div>
+                      {success}
+                      <div className="separator-sm"></div>
+                    </div> : ''
+                  }
+
+                  {
+                    proofPostingResult ? <div className="page-input-result example-format">
+                      {/* {JSON.stringify(proofPostingResult)} */}
+                      <h6><span>Orbis</span></h6>
+                      <a target="_blank" alt="orbis post link" href={JSON.parse(proofPostingResult)?.orbis}>{JSON.parse(proofPostingResult)?.orbis}</a>
+                      <div className="separator-xxs"></div>
+                      <h6><span>Cerscan</span></h6>
+                      <a target="_blank" alt="cerscan post link" href={JSON.parse(proofPostingResult)?.cerscan}>{JSON.parse(proofPostingResult)?.cerscan}</a>
+                    </div> : <></>
                   }
 
                 </div>
@@ -1184,6 +1326,10 @@ payload: ${payload}
               <tr>
                 <th>viewType:</th>
                 <td>{viewType}</td>
+              </tr>
+              <tr>
+                <th>currentPKP:</th>
+                <td>{currentPKP ? short(currentPKP.tokenId) : ''}</td>
               </tr>
             </tbody>
           </table>
