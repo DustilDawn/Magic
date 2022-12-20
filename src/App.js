@@ -14,6 +14,11 @@ import { scrollEaseIn } from "./utils/animate";
 import { LitContracts } from "@lit-protocol/contracts-sdk";
 import Blockies from 'react-blockies';
 import { Magic } from "./Magic";
+import { Cacao, SiweMessage } from '@didtools/cacao';
+import { encodeDIDWithLit } from "key-did-provider-secp256k1-with-lit";
+import { randomString } from "@stablelib/random";
+import { arrayify, hashMessage } from "ethers/lib/utils";
+import { DIDSession, createDIDKey } from 'did-session'
 
 const smartContracts = {
   pkp: '0x86062B7a01B8b2e22619dBE0C15cbe3F7EBd0E92',
@@ -24,6 +29,7 @@ const smartContracts = {
 
 function App() {
 
+  const [didPrefix, setDidPrefix] = useState('did:pkh:eip155:1:');
   const [user, setUser] = useState();
   const [chain, setChain] = useState('mumbai');
   const [address, setAddress] = useState();
@@ -60,14 +66,7 @@ function App() {
 
   useEffect(() => {
 
-    console.log("currentPKP:", currentPKP);
-    console.log("viewType:", viewType);
-    console.log("selectedCardIndex:", selectedCardIndex);
-
     if (viewType !== null && selectedCardIndex !== null) {
-      console.log("THIS WORKS!");
-      console.log("pkps:", pkps);
-      console.log(("authorizedPkps:", authorizedPkps));
 
       var _currentPKP;
 
@@ -80,8 +79,6 @@ function App() {
           _currentPKP = authorizedPkps[selectedCardIndex];
         }
       }
-
-      console.log("_currentPKP:", _currentPKP);
 
       setCurrentPKP(_currentPKP);
 
@@ -102,13 +99,11 @@ function App() {
       setTime(getCurrentTime())
 
       setInterval(async () => {
-        // console.log("Set");
         setTime(getCurrentTime())
       }, 1000);
     }
 
     function keyDownHandler(event) {
-      console.log('User pressed: ', event.key);
 
       if (event.key === 'Escape') {
         event.preventDefault();
@@ -171,39 +166,39 @@ function App() {
     }
   }
 
-  async function runLitAction(file) {
+  async function runLitAction(payload) {
 
-    // calculate the time it takes to execute
+    console.log(`Running "${payload.file}" in Lit Action`);
+
     var start = new Date().getTime();
 
-    file = 'create-post';
+    var code = await getCode(payload.file);
 
-    var code = await getCode(file);
-
-    console.log("code:", code);
-
-    console.warn("pkps[selectedCardIndex].pubKey:", pkps[selectedCardIndex].pubKey);
+    console.warn("currentPKP.pubKey:", currentPKP.pubKey);
 
     const authSig = await LitJsSdk.checkAndSignAuthMessage({ chain });
 
-    const signatures = await lit.executeJs({
+    let signatures = await lit.executeJs({
+      // ipfsId: 'QmeUkT55U4m6CmvVq5aD62UzUP7dDkxTrJmKqcaSFCKDix',
       code,
       authSig,
-      // all jsParams can be used anywhere in your litActionCode
       jsParams: {
-        // this is the string "Hello World" for testing
-        toSign: [72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100],
-        publicKey: pkps[selectedCardIndex].pubKey,
+        toSign: payload.toSign ?? [72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100],
+        publicKey: currentPKP.pubKey,
         sigName: "sig1",
+        ...payload.params,
       },
     });
+
+    console.log("signatures:", signatures);
+    console.log(signatures.logs);
 
     var end = new Date().getTime();
     var time = end - start;
 
     console.warn("time:", time);
-    console.log("signatures: ", signatures);
 
+    return signatures;
   }
 
   async function mintPkp() {
@@ -219,14 +214,11 @@ function App() {
       let contract = new ethers.Contract(smartContracts.pkp, smartContracts.pkpAbi, wallet.getSigner());
       let cost = await contract.mintCost();
       let mint = await contract.mintNext(2, { value: cost.toString() });
-      console.log("mint:", mint);
 
       let wait = await mint.wait();
-      console.log("wait:", wait);
 
       await getPKPs(address);
 
-      console.log("Done!");
       setSuccess("PKP minted successfully! Go back to the main page to see it.");
 
       // await 2 seconds
@@ -236,7 +228,6 @@ function App() {
       scrollToCard(pkps.length, { ms: 1000 });
 
     } catch (e) {
-      console.log(e);
       setMinting(false);
       setError(e.message);
       await new Promise(r => setTimeout(r, 2000));
@@ -262,15 +253,11 @@ function App() {
   // get pkps
   async function getPKPs(controller, { remove, refetchAuthorizedAccounts, refetch = false } = {}) {
 
-    console.log("getting pkps...");
-
     let storagePkps;
 
     try {
       storagePkps = JSON.parse(localStorage.getItem('magic-pkps'))[controller];
-      console.log("storagePkps:", storagePkps);
     } catch (e) {
-      console.log("no pkps in storage");
     }
 
     if (remove) {
@@ -307,13 +294,11 @@ function App() {
       try {
 
         if (storagePkps && storagePkps[i]) {
-          console.log("using the one in storage")
           tokenId = storagePkps[i].tokenId;
           pubKey = storagePkps[i].pubKey;
           address = storagePkps[i].address;
           authorizedAccounts = storagePkps[i].authorizedAccounts;
         } else {
-          console.log("fetching new pkp from", controller)
           pkp = await contract.tokenOfOwnerByIndex(controller, i);
           tokenId = pkp.toString();
           pubKey = await contractRouter.getPubkey(tokenId);
@@ -324,7 +309,6 @@ function App() {
         did = 'did:pkh:eip155:1:' + address.toLowerCase();
 
         if (refetchAuthorizedAccounts) {
-          console.log("refetch authorized accounts");
           authorizedAccounts = await contracts.pkpPermissionsContract.read.getPermittedAddresses(tokenId);
         }
 
@@ -334,19 +318,15 @@ function App() {
       }
     }
 
-    console.log("pkps:", pkps);
 
     setPkps(pkps);
-    console.log("controller:", controller);
     try {
-      console.log("post set storage");
       let storage = JSON.parse(localStorage.getItem('magic-pkps'));
 
       storage[controller] = pkps;
 
       localStorage.setItem('magic-pkps', JSON.stringify(storage));
     } catch (e) {
-      console.log("no storage");
       var usr = {
 
       }
@@ -355,24 +335,16 @@ function App() {
       localStorage.setItem('magic-pkps', JSON.stringify(usr));
     }
 
-    console.log("got pkps");
     return pkps;
   }
 
   async function connectPKP() {
-
-    console.clear();
-
-    console.warn("------ connectPKP Called!-----");
 
     const PKP_PUBKEY = (viewType === 0 ? pkps : authorizedPkps)[selectedCardIndex].pubKey;
 
     const CONTROLLER_AUTHSIG = await LitJsSdk.checkAndSignAuthMessage({
       chain: "mumbai",
     });
-
-    console.log("1. PKP_PUBKEY:", PKP_PUBKEY);
-    console.log("2. CONTROLLER_AUTHSIG:", CONTROLLER_AUTHSIG);
 
     const magicWallet = new Magic({
       pkpPubKey: PKP_PUBKEY,
@@ -384,33 +356,32 @@ function App() {
 
     let orbis = new Orbis();
 
-    let res = await orbis.connect_pkp(magicWallet);
-    console.log("%c PKP Connected to Orbit!", "color: green; font-size: 20px;");
+    await orbis.connect_pkp(magicWallet);
+    await orbis.createPost({ body: 'Hello World' });
 
-    console.log("5. res:", res);
-    console.log("6. ...creating post");
-
-    let createPost = await orbis.createPost({ body: 'Hello World' });
-    console.log("7. createPost:", createPost);
   }
 
   async function onProofPost() {
-
-    // debug
     setProofPosting(true);
     setProofPostingMessage('Proof posting to Orbis...');
     var res = await magicActionHandler({ method: 'proof_post' });
-    console.log(res.doc);
 
     setProofPosting(false);
     setProofPostingMessage();
-    setProofPostingResult(JSON.stringify({
-      profile: ``,
-      orbis: `https://app.orbis.club/post/${res.doc}`,
-      cerscan: `https://cerscan.com/mainnet/stream/${res.doc}`
-    }));
 
-    // real
+    if (res.status === 200) {
+      setProofPostingResult(JSON.stringify({
+        profile: ``,
+        orbis: `https://app.orbis.club/post/${res.doc}`,
+        cerscan: `https://cerscan.com/mainnet/stream/${res.doc}`
+      }));
+    }
+  }
+
+  async function clearStates() {
+    setProofPosting(false);
+    setProofPostingMessage();
+    setProofPostingResult();
   }
 
   async function magicActionHandler(payload) {
@@ -435,30 +406,23 @@ function App() {
 
     if (payload.method === 'create_post') {
       let res = await orbis.createPost({ body: payload.data });
-      console.log(createPost);
       return res;
-
     } else if (payload.method === 'create_conversation') {
       let res = await orbis.createConversation(payload.data);
-      console.log(res);
       return res;
     } else if (payload.method === 'send_message') {
       let res = await orbis.sendMessage(payload.data);
-      console.log(res);
       return res;
     } else if (payload.method === 'follow') {
       let res = await orbis.setFollow(payload.data, true);
-      console.log(res);
       return res;
     } else if (payload.method === 'unfollow') {
       let res = await orbis.setFollow(payload.data, false);
-      console.log(res);
       return res;
     } else if (payload.method === 'get_conversations') {
       let res = await orbis.getConversations({
         did: payload.data,
       });
-      console.log(res);
       return res;
     } else if (payload.method === 'proof_post') {
       var tokenId = (viewType === 0 ? pkps : authorizedPkps)[selectedCardIndex].tokenId;
@@ -469,19 +433,14 @@ function App() {
       const msg = `This post is created by a PKP\nTriggered by:${address}\nPKP Token ID:${tokenId}\nPKP Address:${pkpAddress}`;
 
       let res = await orbis.createPost({ body: msg });
-      console.log(createPost);
       return res;
 
     } else if (payload.method === 'notify_authorized') {
-
-      console.log("~~~ NOTIFY AUTHORIZED ~~~ ");
 
       // message
       const MSG = `${payload.data.authorizeAccount}\nhas been permitted to use\n${payload.data.tokenId}`;
       const did = `did:pkh:eip155:1:${payload.data.authorizeAccount.toLowerCase()}`;
 
-      console.log("MSG:", MSG);
-      console.log("did:", did);
 
       let res1 = await orbis.createConversation({
         recipients: [did],
@@ -493,7 +452,6 @@ function App() {
 
     } else if (payload.method === 'notify_unauthorized') {
 
-      console.log("~~~ NOTIFY UNAUTHORIZED ~~~");
 
       // message
       const MSG = `${payload.data.authorizeAccount}\nhas been removed to use\n${payload.data.tokenId}`;
@@ -531,8 +489,6 @@ function App() {
     let res = await orbis.createPost({ body: 'Hello World' });
 
     if (res.status !== 200) throw new Error(res.message);
-
-    console.log(res);
   }
 
 
@@ -543,9 +499,6 @@ function App() {
     let res = await orbis.editPost(streamId, { body: 'Edited!' });
 
     if (res.status !== 200) throw new Error(res.message);
-
-    console.log(res);
-
   }
 
   async function getPosts() {
@@ -554,9 +507,6 @@ function App() {
     });
 
     if (error) throw new Error(error);
-
-    console.log(data);
-
   }
 
   async function getConversations() {
@@ -574,11 +524,6 @@ function App() {
 
       // format date to hours:minutes:seconds
       date = date.toLocaleTimeString();
-
-
-      console.log(`Data: ${date}
-payload: ${payload}
-      `)
     })
   }
 
@@ -660,9 +605,6 @@ payload: ${payload}
       pkps.push({ tokenId, pubKey, address, authorizedAccounts, did });
     }
 
-    console.log("list:", list);
-    console.log("pkps:", pkps);
-
     return pkps;
   }
 
@@ -695,7 +637,6 @@ payload: ${payload}
 
     setSuccess(null)
     setError(null)
-    console.log("onAuthorize:", authorizeAccount);
 
     setAuthorizing(true);
 
@@ -703,7 +644,6 @@ payload: ${payload}
 
       let tx = await contracts.pkpPermissionsContract.write.addPermittedAddress(pkps[selectedCardIndex].tokenId, authorizeAccount, []);
       let result = await tx.wait();
-      console.log(result);
       setAuthorizingMsg('Updating PKPs...')
       await getPKPs(address, { refetchAuthorizedAccounts: true });
 
@@ -740,14 +680,12 @@ payload: ${payload}
 
     setSuccess(null)
     setError(null)
-    console.log("selectedAuthorizedAccount:", selectedAuthorizedAccount);
 
     setUnauthorizing(true);
 
     try {
       let tx = await contracts.pkpPermissionsContract.write.removePermittedAddress(pkps[selectedCardIndex].tokenId, selectedAuthorizedAccount);
       let result = await tx.wait();
-      console.log(result);
       setUnauthorizingMsg('Updating PKPs...')
 
       await getPKPs(address, { refetchAuthorizedAccounts: true });
@@ -793,7 +731,6 @@ payload: ${payload}
     try {
       document.execCommand('copy');
     } catch (err) {
-      console.log('Error copying to clipboard: ', err);
     }
 
     document.body.removeChild(tempInput);
@@ -816,7 +753,6 @@ payload: ${payload}
 
   async function getPermitted() {
     let result = await contracts.pkpPermissionsContract.read.getPermittedAddresses(pkps[selectedCardIndex].tokenId);
-    console.log(result);
   }
 
   return (
@@ -851,7 +787,12 @@ payload: ${payload}
                 <section>
                   {/* <h6 className="center"><span>Account Manager</span></h6> */}
 
-                  <div className='text user'><span>did:pkh:eip155:1:{short(user.split(':')[4], 6, 4, '...') ?? '[please connect orbis]'}</span></div>
+                  <div className='text user' onClick={() => copyToClipboard(user)}>
+                    <div className={`copied active`}>Copied</div>
+                    <span>
+                      {didPrefix}{short(user.split(':')[4], 6, 4, '...') ?? '[please connect orbis]'}
+                    </span>
+                  </div>
 
                   <div className="separator-md"></div>
                 </section>
@@ -870,7 +811,10 @@ payload: ${payload}
                         setViewType(1);
                       }}><span>Authorized</span></h6>
                     </div>
-                    <Icon onClick={addWallet} name="add" />
+                    {
+                      viewType === 0 ?
+                        <Icon onClick={addWallet} name="add" /> : ''
+                    }
 
                   </div>
 
@@ -969,11 +913,71 @@ payload: ${payload}
                       <section>
                         <div onClick={() => setActivePage('btn-action-proof-post')} className={`action ${!currentPKP ? 'disabled' : ''}`}>
                           <img src="https://orbis.club/img/orbis-logo.png" alt="orbis" />
-                          <span>Proof Post</span>
+                          <span>Orbis<br />Proof Post</span>
                         </div>
-                        <div className="action disabled">
-                          <img src="https://orbis.club/img/orbis-logo.png" alt="orbis" />
-                          <span>Like Post</span>
+                        <div onClick={() => runLitAction({
+                          file: 'tile-action',
+                          params: {
+                            seed: [142, 214, 103, 107, 150, 147, 119, 49, 123, 190, 46, 144, 27, 146, 96, 200, 237, 210, 78, 75, 114, 148, 102, 7, 20, 153, 37, 174, 94, 2, 105, 43],
+                            content: { foo: 'bar' },
+                            host: "https://node1.orbis.club/",
+                          }
+                        })} className={`action ${!currentPKP ? 'disabled' : ''}`}>
+                          <Icon name="lit" />
+                          <span>Lit Action<br />(privkey)</span>
+                        </div>
+                        <div onClick={async () => {
+                          const now = new Date();
+                          const CONTROLLER_AUTHSIG = await LitJsSdk.checkAndSignAuthMessage({
+                            chain: "mumbai",
+                          });
+
+                          const oneWeekLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+                          const keyDid = await encodeDIDWithLit(currentPKP.pubKey);
+
+                          const siweMessage = new SiweMessage({
+                            domain: window.location.hostname,
+                            address: address,
+                            statement: 'Give this application access to some of your data on Ceramic',
+                            uri: keyDid,
+                            version: "1",
+                            nonce: randomString(10),
+                            issuedAt: now.toISOString(),
+                            expirationTime: oneWeekLater.toISOString(),
+                            chainId: "1",
+                            resources: [
+                              "ceramic://"
+                            ]
+                          });
+
+                          console.log(siweMessage);
+                          // return;
+
+                          const toSign = arrayify(hashMessage(siweMessage.signMessage()));
+
+                          const sig1 = await runLitAction({
+                            file: 'test-action',
+                            params: {
+                              toSign,
+                              functionName: 'personalSign()'
+                            }
+                          });
+
+                          siweMessage.message = sig1.signatures.sig1;
+
+                          const sig2 = await runLitAction({
+                            file: 'test-action',
+                            params: {
+                              siweMessage,
+                              functionName: 'getDIDSession()',
+                            }
+                          });
+
+
+                        }} className={`action ${!currentPKP ? 'disabled' : ''}`}>
+                          <Icon name="lit" />
+                          <span>Lit Action<br />(test)</span>
                         </div>
                         <div className="action disabled">
                           <img src="https://orbis.club/img/orbis-logo.png" alt="orbis" />
@@ -1033,7 +1037,10 @@ payload: ${payload}
 
           {/* page-x */}
           <div className={`page page-pop page-x ${activePage}`}>
-            <div className="text text-red cursor" onClick={() => setActivePage(0)}>Cancel</div>
+            <div className="text text-red cursor" onClick={() => {
+              setActivePage(0);
+              clearStates();
+            }}>Cancel</div>
             <div className="page-center">
               <h1><span>Add new Wallet</span></h1>
               <p>
@@ -1110,10 +1117,9 @@ payload: ${payload}
 
 
           {/* add authorized account */}
-          <div className={`page page-input ${activePage}`}>
+          <div className={`page page-input ${activePage === 'io' ? 'io' : ''}`}>
 
             <div className="page-input-inner">
-              {/* <div className="text text-red cursor" onClick={() => setActivePage(0)}>Cancel</div> */}
 
               <div className="page-center">
                 <div className="separator-sm"></div>
@@ -1164,7 +1170,7 @@ payload: ${payload}
           </div>
 
           {/* action handler */}
-          <div className={`page page-input ${activePage}`}>
+          <div className={`page page-input ${activePage === 'btn-action-proof-post' ? 'btn-action-proof-post' : ''}`}>
 
             <div className="page-input-inner">
               {/* <div className="text text-red cursor" onClick={() => setActivePage(0)}>Cancel</div> */}
@@ -1191,7 +1197,10 @@ payload: ${payload}
                   }
 
                   <div className="button-group">
-                    <div className="button-cancel" onClick={() => setActivePage(0)}>Cancel</div>
+                    <div className="button-cancel" onClick={() => {
+                      setActivePage(0)
+                      clearStates();
+                    }}>Cancel</div>
                     <div className="button-brand-2" onClick={() => onProofPost()}>Send</div>
                   </div>
 

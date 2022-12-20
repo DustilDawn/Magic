@@ -177,6 +177,7 @@ a {
   padding-right: 4px;
   padding-top: 4px;
   padding-bottom: 4px;
+  cursor: pointer;
 }
 .button:hover,
 .button-brand-2:hover {
@@ -568,14 +569,20 @@ span.inactive {
 }
 .action > span {
   position: absolute;
-  bottom: -15px;
+  bottom: -27px;
+  height: 24px;
+  text-align: center;
 }
-.action img {
+.action img,
+.action svg {
   width: 100%;
   padding: 14px;
   box-sizing: border-box;
 }
-
+.action svg {
+  height: 100%;
+  color: #f57689;
+}
 .gradient-0 {
   background: linear-gradient(135deg, #042340 0%, #004386 100%);
 }
@@ -1007,7 +1014,7 @@ canvas.identicon {
   color: #ffffff;
   text-decoration: none;
 }
-.page-input-result a:hover{
+.page-input-result a:hover {
   text-decoration: underline;
   color: #fe9e61;
 }
