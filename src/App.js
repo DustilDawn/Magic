@@ -40,6 +40,7 @@ const smartContracts = {
 function App() {
 
   const [didPrefix, setDidPrefix] = useState('did:pkh:eip155:1:');
+  const [rpc, setRpc] = useState("https://rpc-mumbai.maticvigil.com");
   const [user, setUser] = useState();
   const [chain, setChain] = useState('mumbai');
   const [address, setAddress] = useState();
@@ -150,6 +151,33 @@ function App() {
 
   // orbisLit
   async function connect() {
+
+    var web3;
+
+    if (!window.ethereum) {
+      alert('Please install MetaMask');
+      return;
+    }
+
+    web3 = window.ethereum;
+
+    try {
+      web3.send("wallet_switchEthereumChain", [
+        { chainId: "0x13881" },
+      ]);
+    } catch (e) {
+      web3.request({
+        method: "wallet_addEthereumChain",
+        params: {
+          chainId: "0x13881",
+          chainName: "Mumbai",
+          nativeCurrency: { name: "Matic", symbol: "MATIC", decimals: 18 },
+          rpcUrls: [rpc],
+          blockExplorerUrls: ["https://mumbai.polygonscan.com/"],
+        },
+      });
+    }
+
     setLoading(true);
     let lit = await connectLit();
     let orbis = await connectOrbis();
@@ -157,6 +185,21 @@ function App() {
     if (lit && orbis) {
       setLoading(false);
     }
+  }
+
+  async function connectMagic() {
+
+    const PKP_PUBKEY = (viewType === 0 ? pkps : authorizedPkps)[selectedCardIndex].pubKey;
+
+    const CONTROLLER_AUTHSIG = await LitJsSdk.checkAndSignAuthMessage({
+      chain
+    });
+
+    const magicWallet = new Magic({
+      pkpPubKey: PKP_PUBKEY,
+      controllerAuthSig: CONTROLLER_AUTHSIG,
+      provider: rpc,
+    });
   }
 
   async function getCode(file = '') {
@@ -219,7 +262,6 @@ function App() {
     setError(null);
 
     let wallet = new ethers.providers.Web3Provider(window.ethereum);
-
 
     try {
       // throw new Error('Minting is disabled now.');
@@ -287,7 +329,9 @@ function App() {
 
     let contract = new ethers.Contract(smartContracts.pkp, smartContracts.pkpAbi, provider);
     let contractRouter = new ethers.Contract(smartContracts.router, smartContracts.routerAbi, provider);
-    let contracts = new LitContracts();
+    let contracts = new LitContracts({
+      rpc: rpc,
+    });
     await contracts.connect();
 
     setContracts(contracts);
@@ -355,13 +399,13 @@ function App() {
     const PKP_PUBKEY = (viewType === 0 ? pkps : authorizedPkps)[selectedCardIndex].pubKey;
 
     const CONTROLLER_AUTHSIG = await LitJsSdk.checkAndSignAuthMessage({
-      chain: "mumbai",
+      chain
     });
 
     const magicWallet = new Magic({
       pkpPubKey: PKP_PUBKEY,
       controllerAuthSig: CONTROLLER_AUTHSIG,
-      provider: "https://rpc-mumbai.maticvigil.com",
+      provider: rpc,
     });
 
     await magicWallet.connect();
@@ -408,13 +452,13 @@ function App() {
     const PKP_PUBKEY = (viewType === 0 ? pkps : authorizedPkps)[selectedCardIndex].pubKey;
 
     const CONTROLLER_AUTHSIG = await LitJsSdk.checkAndSignAuthMessage({
-      chain: "mumbai",
+      chain
     });
 
     const magicWallet = new Magic({
       pkpPubKey: PKP_PUBKEY,
       controllerAuthSig: CONTROLLER_AUTHSIG,
-      provider: "https://rpc-mumbai.maticvigil.com",
+      provider: rpc,
     })
 
     await magicWallet.connect();
@@ -598,7 +642,7 @@ function App() {
 
     let contract = new ethers.Contract(smartContracts.pkp, smartContracts.pkpAbi, provider);
     let contractRouter = new ethers.Contract(smartContracts.router, smartContracts.routerAbi, provider);
-    let contracts = new LitContracts();
+    let contracts = new LitContracts({rpc});
     await contracts.connect();
 
     let pkps = [];
@@ -820,13 +864,13 @@ function App() {
     });
 
     const CONTROLLER_AUTHSIG = await LitJsSdk.checkAndSignAuthMessage({
-      chain: "mumbai",
+      chain
     });
 
     const magicWallet = new Magic({
       pkpPubKey: currentPKP.pubKey,
       controllerAuthSig: CONTROLLER_AUTHSIG,
-      provider: "https://rpc-mumbai.maticvigil.com",
+      provider: rpc,
     });
 
     await magicWallet.connect();
@@ -1124,13 +1168,13 @@ function App() {
     const ceramic = new CeramicClient("https://node1.orbis.club/");
 
     const CONTROLLER_AUTHSIG = await LitJsSdk.checkAndSignAuthMessage({
-      chain: "mumbai",
+      chain
     });
 
     const magicWallet = new Magic({
       pkpPubKey: currentPKP.pubKey,
       controllerAuthSig: CONTROLLER_AUTHSIG,
-      provider: "https://rpc-mumbai.maticvigil.com",
+      provider: rpc,
     });
 
     await magicWallet.connect();
@@ -1412,10 +1456,10 @@ function App() {
                           <Icon name="seed" />
                           <span>Lit Action<br />(Seed)</span>
                         </div>
-                        <div onClick={() => onLitActionsTest()} className={`action ${!currentPKP ? 'disabled' : ''}`}>
+                        {/* <div onClick={() => onLitActionsTest()} className={`action ${!currentPKP ? 'disabled' : ''}`}>
                           <Icon name="lit" />
                           <span>Lit Action<br />(test)</span>
-                        </div>
+                        </div> */}
                         <div onClick={() => onOrbisTest()} className={`action ${!currentPKP ? 'disabled' : ''}`}>
                           <Icon name="lit" />
                           <span>Lit Action<br />(CreatePost)</span>
@@ -1787,6 +1831,7 @@ function App() {
 
           {/* merged operations */}
           <a className='App-link' onClick={connect}>Connect</a><br />
+          <a className='App-link' onClick={connectMagic}>Connect Magic</a><br />
 
           ===<br />
           {/* connect lit */}
