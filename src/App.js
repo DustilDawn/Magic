@@ -1,5 +1,5 @@
 import { Orbis } from "orbis-sdk";
-import LitJsSdk from "lit-js-sdk";
+import LitJsSdk, { LitNodeClient } from "lit-js-sdk";
 import { useEffect, useState } from 'react';
 
 import { ethers } from 'ethers';
@@ -15,10 +15,21 @@ import { LitContracts } from "@lit-protocol/contracts-sdk";
 import Blockies from 'react-blockies';
 import { Magic } from "./Magic";
 import { Cacao, SiweMessage } from '@didtools/cacao';
-import { encodeDIDWithLit } from "key-did-provider-secp256k1-with-lit";
-import { randomString } from "@stablelib/random";
+// import { encodeDIDWithLit } from "key-did-provider-secp256k1-with-lit";
+import { randomBytes, randomString } from "@stablelib/random";
 import { arrayify, hashMessage } from "ethers/lib/utils";
-import { DIDSession, createDIDKey } from 'did-session'
+import { DIDSession, createDIDKey, createDIDCacao } from 'did-session'
+import { CeramicClient } from '@ceramicnetwork/http-client'
+import { TileDocument } from '@ceramicnetwork/stream-tile'
+import { StreamUtils } from '@ceramicnetwork/common';
+
+import { CID } from 'multiformats/cid';
+import * as Block from 'multiformats/block';
+import * as dagCBOR from '@ipld/dag-cbor';
+import { sha256 } from 'multiformats/hashes/sha2';
+import { toString } from 'uint8arrays/to-string';
+import { CacaoBlock } from '@didtools/cacao';
+import { orbisSdk } from "./orbis-sdk";
 
 const smartContracts = {
   pkp: '0x86062B7a01B8b2e22619dBE0C15cbe3F7EBd0E92',
@@ -177,6 +188,8 @@ function App() {
     console.warn("currentPKP.pubKey:", currentPKP.pubKey);
 
     const authSig = await LitJsSdk.checkAndSignAuthMessage({ chain });
+
+    console.log("lit:", lit);
 
     let signatures = await lit.executeJs({
       // ipfsId: 'QmeUkT55U4m6CmvVq5aD62UzUP7dDkxTrJmKqcaSFCKDix',
@@ -754,6 +767,469 @@ function App() {
   async function getPermitted() {
     let result = await contracts.pkpPermissionsContract.read.getPermittedAddresses(pkps[selectedCardIndex].tokenId);
   }
+  // use lit action to create post using a private key
+  async function onLitActionsPrivateKey() {
+    await runLitAction({
+      file: 'tile-action',
+      params: {
+        seed: [142, 214, 103, 107, 150, 147, 119, 49, 123, 190, 46, 144, 27, 146, 96, 200, 237, 210, 78, 75, 114, 148, 102, 7, 20, 153, 37, 174, 94, 2, 105, 43],
+        content: { foo: 'bar' },
+        host: "https://node1.orbis.club/",
+      }
+    })
+  }
+
+  // use lit action to create post using did
+  async function onLitActionsTest() {
+
+    // const sig1 = await runLitAction({
+    //   file: 'test-action',
+    //   params: {
+    //     // toSign: arrayify(hashMessage(siweMessage.signMessage())),
+    //     functionName: 'personalSign()'
+    //   }
+    // });
+    // ====
+    // async function createCACAO() {
+    const now = new Date();
+
+    const oneWeekLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    // create a did:key
+    // const keyDid = await encodeDIDWithLit(currentPKP.pubKey);
+
+    const keySeed = randomBytes(32);
+    const didKey = await createDIDKey(keySeed);
+
+    // create a siwe message
+    const siweMessage = new SiweMessage({
+      domain: window.location.hostname,
+      address: currentPKP.address,
+      statement: 'Give this application access to some of your data on Ceramic',
+      uri: didKey,
+      version: '1',
+      nonce: randomString(10),
+      issuedAt: now.toISOString(),
+      expirationTime: oneWeekLater.toISOString(),
+      chainId: "1",
+      resources: [`ceramic://*`]
+    });
+
+    const CONTROLLER_AUTHSIG = await LitJsSdk.checkAndSignAuthMessage({
+      chain: "mumbai",
+    });
+
+    const magicWallet = new Magic({
+      pkpPubKey: currentPKP.pubKey,
+      controllerAuthSig: CONTROLLER_AUTHSIG,
+      provider: "https://rpc-mumbai.maticvigil.com",
+    });
+
+    await magicWallet.connect();
+
+    const sig = await magicWallet.handler({
+      method: 'personal_sign',
+      params: [siweMessage.signMessage(), currentPKP.address]
+    });
+
+    console.log("sig:", sig);
+
+    // ===
+
+    // const sig1 = await runLitAction({
+    //   file: 'test-action',
+    //   params: {
+    //     toSign: arrayify(hashMessage(siweMessage.signMessage())),
+    //     functionName: 'personalSign()'
+    //   }
+    // });
+
+    // const joinSig = {
+    //   r: '0x' + sig1.signatures.sig1.r,
+    //   s: '0x' + sig1.signatures.sig1.s,
+    //   v: sig1.signatures.sig1.recid,
+    // }
+
+    siweMessage.message = sig;
+
+    // ===
+
+    // console.log("siweMessage:", siweMessage);
+
+    // await runLitAction({
+    //   file: 'test-action',
+    //   params: {
+    //     siweMessage: siweMessage,
+    //     keySeed,
+    //     functionName: 'getDIDSession()',
+    //   }
+    // });
+
+    // return;
+
+    // create a cacao object with the message signed 
+    var cacao = Cacao.fromSiweMessage(siweMessage);
+
+    // create a did
+    const _did = await createDIDCacao(didKey, cacao);
+
+    _did._parentId = _did._parentId.toLowerCase();
+    console.log("_did:", _did);
+
+    var didSession = new DIDSession({
+      cacao,
+      keySeed,
+      did: _did
+    });
+
+    console.log("didSession:", didSession);
+
+    const did = didSession.did;
+    console.log("did:", did);
+
+    // return;
+    // return;
+    // console.log("didSession.id:", didSession.id);
+    // }
+
+    // async function getAuthMethod(){
+    //   return async () =>{
+    //     return createCACAO();
+    //   }
+    // }
+    // const sig2 = await runLitAction({
+    //   file: 'test-action',
+    //   params: {
+    //     siweMessage,
+    //     functionName: 'getDIDSession()'
+    //   }
+    // });
+
+    // ====
+
+    const ceramic = new CeramicClient("https://node1.orbis.club/");
+    const threeMonths = 60 * 60 * 24 * 90;
+    // const authMethod = await getAuthMethod();
+    // console.log(authMethod);
+    // let did;
+
+    // try {
+    //   var session = await DIDSession.authorize(authMethod,
+    //     {
+    //       resources: [`ceramic://*`],
+    //       expiresInSecs: threeMonths
+    //     }
+    //   );
+
+    // did = session.did;
+    // const auth = didSession.isAuthorized([`ceramic://*`]);
+    // console.log("didSession.isAuthorized():", auth);
+    // return;
+    await did.authenticate();
+    ceramic.did = did;
+
+    console.log("did:", did);
+
+    console.log("ceramic:", ceramic);
+    // return;
+    // return;
+
+    // console.log("did =>", did);
+    // console.log("did is authenticated =>", did.authenticated);
+    // console.log("session.id =>", session.id);
+    // console.log("didSession.id =>", didSession.id);
+    // } catch (e) {
+    //   return {
+    //     status: 300,
+    //     error: e,
+    //     result: "Error creating a session for the DiD."
+    //   }
+    // }
+
+    const postSchemaCommit = "k1dpgaqe3i64kjuyet4w0zyaqwamf9wrp1jim19y27veqkppo34yghivt2pag4wxp0fv2yl4hedynpfuynp2wvd8s7ctabea6lx732xrr8b0cgqauwlh0vwg6";
+
+    const metadata = {
+      family: "orbis",
+      controllers: [didSession.id],
+      tags: ["orbis", "post"],
+      schema: postSchemaCommit
+    };
+
+    const INPUT_HOST = "https://node1.orbis.club/"
+    const API_PATH = '/api/v0/';
+    const apiUrl = new URL(API_PATH, INPUT_HOST);
+    const STREAM_TYPE_ID = 0;
+
+    // console.log("did.hasParent:", did.hasParent);
+    // console.log("did.id:", did.id);
+    // console.log("did.parent:", did.parent);
+
+    // const commit = await TileDocument.makeGenesis(ceramic);
+    // console.warn("commit:", commit);
+
+    // return;
+
+    // prep to make genensis
+    const commitPrep = await TileDocument.makeGenesisWithoutSignDagJWS(ceramic, { body: "gm!" }, metadata);
+
+    console.log("commitPrep:", commitPrep);
+
+    async function createDagJWS() {
+
+      // your own makeGenesis commit
+      // const commit = ceramic.did.createDagJWS(commitPrep);
+      // === createDagJWS ===
+      async function encodePayload(payload) {
+        const block = await Block.encode({
+          value: payload,
+          codec: dagCBOR,
+          hasher: sha256
+        });
+        return {
+          cid: block.cid,
+          linkedBlock: block.bytes,
+        }
+      }
+
+      // console.log(did._client);
+      async function createJWS(did, payload, options = {}) {
+
+        const jws = await did._client.request('did_createJWS', {
+          did: did._id,
+          ...options,
+          payload,
+        })
+
+        return jws;
+      }
+
+      const { cid, linkedBlock } = await encodePayload(commitPrep);
+
+      console.log("cid:", cid);
+      console.log("linkedBlock:", linkedBlock);
+
+      const payloadCid = toString(cid.bytes, 'base64url');
+
+      console.log("payloadCid:", payloadCid);
+
+      const options = {};
+
+      Object.assign(options, {
+        linkedBlock: toString(linkedBlock, 'base64pad'),
+      })
+      const { jws } = await createJWS(did, payloadCid, options);
+
+      console.log("jws:", jws);
+
+      const compatibleCID = CID.asCID(cid);
+
+      console.log("compatibleCID:", compatibleCID);
+
+      jws.link = compatibleCID;
+
+      console.log("jws:", jws);
+
+
+      if (did._capability) {
+
+        const pureObject = JSON.parse(JSON.stringify(did._capability));
+
+        const cacaoBlock = await CacaoBlock.fromCacao(pureObject);
+        return {
+          jws,
+          linkedBlock,
+          cacaoBlock: cacaoBlock.bytes,
+        }
+      } else {
+        return {
+          jws,
+          linkedBlock,
+        }
+      }
+    }
+
+    const commit2 = await createDagJWS();
+
+    // commit2.header = commit.header;
+
+    console.log("commit2:", commit2);
+
+    const doc = await ceramic.createStreamFromGenesis(0, commit2);
+
+
+    return;
+
+
+    // create stream
+    const url2 = new URL('./streams', new URL(API_PATH, INPUT_HOST));
+
+    const res2 = await fetch(url2, {
+      method: 'post',
+      body: JSON.stringify({
+        type: 0,
+        genesis: StreamUtils.serializeCommit(commit),
+        opts: {
+          anchor: true,
+          publish: true,
+          sync: 0,
+        }
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    console.log(await res2.text());
+
+    return;
+    // const commit = 
+
+    // console.log("commit:", commit);
+    // return;
+    // var doc = await TileDocument.create(ceramic, '123', metadata, { anchor: true, publish: true, sync: 0 });
+
+    // console.log("doc =>", doc);
+
+    const serializedCommit = StreamUtils.serializeCommit(commit);
+
+    console.log("serializedCommit =>", serializedCommit);
+
+    const url = new URL('./streams', apiUrl);
+    console.log("url =>", url);
+
+    const res = await fetch(url, {
+      method: 'post',
+      body: JSON.stringify({
+        type: STREAM_TYPE_ID,
+        genesis: StreamUtils.serializeCommit(commit),
+        opts: {
+          anchor: true,
+          publish: true,
+          pin: true,
+          sync: 0,
+        },
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    console.log("res =>", await res.json());
+
+  }
+
+  // use lit action to use orbis sdk
+  async function onOrbisTest() {
+
+    const TEST = 0;
+
+    if (TEST === 0) {
+      const SESSION_KEY = "eyJzZXNzaW9uS2V5U2VlZCI6ImVzSTViUzB2YmNFenhEbFBZL2JmS1ZuZXNkV1ZTWEJudlJtQ0JCSEFNN1E9IiwiY2FjYW8iOnsiaCI6eyJ0IjoiZWlwNDM2MSJ9LCJwIjp7ImRvbWFpbiI6ImxvY2FsaG9zdCIsImlhdCI6IjIwMjItMTItMjFUMjM6NDE6NTguNjc4WiIsImlzcyI6ImRpZDpwa2g6ZWlwMTU1OjE6MHg2ZDMwYTlmNzlhMzVmZTNlZGUxODI3ZjhmZDAwNTBhZGE2ZmVhOTAxIiwiYXVkIjoiZGlkOmtleTp6Nk1rajh1cnN3cHVBS3l2TEcxdllYSDRDUld3NFpWaXFBV1E3M3JCbjVaN2VyTWEiLCJ2ZXJzaW9uIjoiMSIsIm5vbmNlIjoiZWlOTG1ScXRneCIsImV4cCI6IjIwMjMtMDMtMjFUMjM6NDE6NTguNjc4WiIsInN0YXRlbWVudCI6IkdpdmUgdGhpcyBhcHBsaWNhdGlvbiBhY2Nlc3MgdG8gc29tZSBvZiB5b3VyIGRhdGEgb24gQ2VyYW1pYyIsInJlc291cmNlcyI6WyJjZXJhbWljOi8vKiJdfSwicyI6eyJ0IjoiZWlwMTkxIiwicyI6IjB4OTQ0ZTk5NWQ4Mzg1Y2E2YzU0M2M3ODJhMGQ2YzEwZjVmZWViODVjY2I1NTZlMGNiZmMzMWNjZWFhZjVkNTI5YzVkNjlhZTU4YmI0MjY1YmYwNTZjMzhhNGM5YzkxZWMyMTkzMjVkN2E3NzdhZWE0NmVjNDE3NDgwNTQxMGVhOGExYiJ9fX0";
+
+      await runLitAction({
+        file: 'orbis-sdk',
+        params:{
+          SESSION_KEY
+        }
+      });
+    }
+
+    if (TEST === 1) {
+      const orbis = new orbisSdk.Orbis();
+
+      const ceramic = new CeramicClient("https://node1.orbis.club/");
+
+      const CONTROLLER_AUTHSIG = await LitJsSdk.checkAndSignAuthMessage({
+        chain: "mumbai",
+      });
+
+      const magicWallet = new Magic({
+        pkpPubKey: (viewType === 0 ? pkps : authorizedPkps)[selectedCardIndex].pubKey,
+        controllerAuthSig: CONTROLLER_AUTHSIG,
+        provider: "https://rpc-mumbai.maticvigil.com",
+      });
+
+      await magicWallet.connect();
+
+      const session = await orbis.getSession(magicWallet);
+      console.log("session:", session);
+
+      const session2 = await DIDSession.fromSession("eyJzZXNzaW9uS2V5U2VlZCI6ImVzSTViUzB2YmNFenhEbFBZL2JmS1ZuZXNkV1ZTWEJudlJtQ0JCSEFNN1E9IiwiY2FjYW8iOnsiaCI6eyJ0IjoiZWlwNDM2MSJ9LCJwIjp7ImRvbWFpbiI6ImxvY2FsaG9zdCIsImlhdCI6IjIwMjItMTItMjFUMjM6NDE6NTguNjc4WiIsImlzcyI6ImRpZDpwa2g6ZWlwMTU1OjE6MHg2ZDMwYTlmNzlhMzVmZTNlZGUxODI3ZjhmZDAwNTBhZGE2ZmVhOTAxIiwiYXVkIjoiZGlkOmtleTp6Nk1rajh1cnN3cHVBS3l2TEcxdllYSDRDUld3NFpWaXFBV1E3M3JCbjVaN2VyTWEiLCJ2ZXJzaW9uIjoiMSIsIm5vbmNlIjoiZWlOTG1ScXRneCIsImV4cCI6IjIwMjMtMDMtMjFUMjM6NDE6NTguNjc4WiIsInN0YXRlbWVudCI6IkdpdmUgdGhpcyBhcHBsaWNhdGlvbiBhY2Nlc3MgdG8gc29tZSBvZiB5b3VyIGRhdGEgb24gQ2VyYW1pYyIsInJlc291cmNlcyI6WyJjZXJhbWljOi8vKiJdfSwicyI6eyJ0IjoiZWlwMTkxIiwicyI6IjB4OTQ0ZTk5NWQ4Mzg1Y2E2YzU0M2M3ODJhMGQ2YzEwZjVmZWViODVjY2I1NTZlMGNiZmMzMWNjZWFhZjVkNTI5YzVkNjlhZTU4YmI0MjY1YmYwNTZjMzhhNGM5YzkxZWMyMTkzMjVkN2E3NzdhZWE0NmVjNDE3NDgwNTQxMGVhOGExYiJ9fX0");
+
+      ceramic.did = session2.did;
+      console.log("session2:", session2);
+
+      orbis.ceramic = ceramic;
+
+      const postSchemaCommit = "k1dpgaqe3i64kjuyet4w0zyaqwamf9wrp1jim19y27veqkppo34yghivt2pag4wxp0fv2yl4hedynpfuynp2wvd8s7ctabea6lx732xrr8b0cgqauwlh0vwg6";
+
+      // const post = await orbis.createTileDocument({body: "gm!"}, ["orbis", "post"], postSchemaCommit);
+      // const post = await TileDocument.create(
+      //   ceramic,
+      //   { body: "gm!" },
+      //   {
+      //     family: 'orbis',
+      //     controllers: [session2.id],
+      //     tags: ['orbis', 'post'],
+      //     schema: postSchemaCommit
+      //   }
+      // );
+      // console.log(post);
+      // console.log(post.id.toString());
+      const commit = await orbisSdk.TileDocument.makeGenesis(ceramic, { body: 'gm!2' }, {
+        family: 'orbis',
+        controllers: [session2.id],
+        tags: ['orbis', 'post'],
+        schema: postSchemaCommit
+      });
+
+      // const post = await ceramic.createStreamFromGenesis(0, commit);
+      // console.log(post);
+      // const DEFAULT_CREATE_FROM_GENESIS_OPTS = {
+      //   anchor: true,
+      //   publish: true,
+      //   sync: 0,
+      // };
+
+      // console.log("this._apiUrl:", ceramic._apiUrl);
+      // console.log("this._config.syncInterval:", ceramic._config.syncInterval);
+
+      // const stream = await Document.createFromGenesis(
+      //   ceramic._apiUrl,
+      //   0,
+      //   commit,
+      //   { ...DEFAULT_CREATE_FROM_GENESIS_OPTS, ...{} },
+      //   5000,
+      // );
+
+      // console.log("stream:", stream);
+      const url = new URL('./streams', ceramic._apiUrl);
+      const res = await fetch(url, {
+        method: 'post',
+        body: JSON.stringify({
+          type: 0,
+          genesis: orbisSdk.StreamUtils.serializeCommit(commit),
+          opts: {
+            anchor: true,
+            publish: true,
+            pin: true,
+            sync: 0,
+          }
+        }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      console.log("res:", res);
+
+      let { state } = await res.json();
+      console.log("state:", state);
+
+      const doc = new orbisSdk.Document(orbisSdk.StreamUtils.deserializeState(state), url, 5000);
+      console.log("doc =>", doc);
+
+      const post = await ceramic.buildStreamFromDocument(doc);
+
+      console.log("post.id =>", post.id.toString());
+
+    }
+
+  }
 
   return (
     <div className="App">
@@ -788,7 +1264,7 @@ function App() {
                   {/* <h6 className="center"><span>Account Manager</span></h6> */}
 
                   <div className='text user' onClick={() => copyToClipboard(user)}>
-                    <div className={`copied active`}>Copied</div>
+                    {/* <div className={`copied active`}>Copied</div> */}
                     <span>
                       {didPrefix}{short(user.split(':')[4], 6, 4, '...') ?? '[please connect orbis]'}
                     </span>
@@ -915,73 +1391,17 @@ function App() {
                           <img src="https://orbis.club/img/orbis-logo.png" alt="orbis" />
                           <span>Orbis<br />Proof Post</span>
                         </div>
-                        <div onClick={() => runLitAction({
-                          file: 'tile-action',
-                          params: {
-                            seed: [142, 214, 103, 107, 150, 147, 119, 49, 123, 190, 46, 144, 27, 146, 96, 200, 237, 210, 78, 75, 114, 148, 102, 7, 20, 153, 37, 174, 94, 2, 105, 43],
-                            content: { foo: 'bar' },
-                            host: "https://node1.orbis.club/",
-                          }
-                        })} className={`action ${!currentPKP ? 'disabled' : ''}`}>
+                        <div onClick={() => onLitActionsPrivateKey()} className={`action ${!currentPKP ? 'disabled' : ''}`}>
                           <Icon name="lit" />
                           <span>Lit Action<br />(privkey)</span>
                         </div>
-                        <div onClick={async () => {
-                          const now = new Date();
-                          const CONTROLLER_AUTHSIG = await LitJsSdk.checkAndSignAuthMessage({
-                            chain: "mumbai",
-                          });
-
-                          const oneWeekLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-
-                          const keyDid = await encodeDIDWithLit(currentPKP.pubKey);
-
-                          const siweMessage = new SiweMessage({
-                            domain: window.location.hostname,
-                            address: address,
-                            statement: 'Give this application access to some of your data on Ceramic',
-                            uri: keyDid,
-                            version: "1",
-                            nonce: randomString(10),
-                            issuedAt: now.toISOString(),
-                            expirationTime: oneWeekLater.toISOString(),
-                            chainId: "1",
-                            resources: [
-                              "ceramic://"
-                            ]
-                          });
-
-                          console.log(siweMessage);
-                          // return;
-
-                          const toSign = arrayify(hashMessage(siweMessage.signMessage()));
-
-                          const sig1 = await runLitAction({
-                            file: 'test-action',
-                            params: {
-                              toSign,
-                              functionName: 'personalSign()'
-                            }
-                          });
-
-                          siweMessage.message = sig1.signatures.sig1;
-
-                          const sig2 = await runLitAction({
-                            file: 'test-action',
-                            params: {
-                              siweMessage,
-                              functionName: 'getDIDSession()',
-                            }
-                          });
-
-
-                        }} className={`action ${!currentPKP ? 'disabled' : ''}`}>
+                        <div onClick={() => onLitActionsTest()} className={`action ${!currentPKP ? 'disabled' : ''}`}>
                           <Icon name="lit" />
                           <span>Lit Action<br />(test)</span>
                         </div>
-                        <div className="action disabled">
+                        <div onClick={() => onOrbisTest()} className="action">
                           <img src="https://orbis.club/img/orbis-logo.png" alt="orbis" />
-                          <span>Create Post</span>
+                          <span>Lit Action (orbis)</span>
                         </div>
                       </section>
 
