@@ -642,7 +642,7 @@ function App() {
 
     let contract = new ethers.Contract(smartContracts.pkp, smartContracts.pkpAbi, provider);
     let contractRouter = new ethers.Contract(smartContracts.router, smartContracts.routerAbi, provider);
-    let contracts = new LitContracts({rpc});
+    let contracts = new LitContracts({ rpc });
     await contracts.connect();
 
     let pkps = [];
@@ -1185,7 +1185,7 @@ function App() {
   }
 
   // use lit action to use orbis sdk
-  async function onOrbisTest() {
+  async function onLitActionsCreatePost() {
 
     const VERSION = 0;
 
@@ -1290,6 +1290,18 @@ function App() {
 
     }
 
+  }
+
+  async function onLitActionsGetPosts() {
+    let res = await runLitAction({
+      file: 'orbis-sdk',
+      params: {
+        method: 'get_posts',
+      },
+    });
+    console.log(res.logs.split('\n'));
+
+    // await ÷orbis.getPosts();
   }
 
   return (
@@ -1460,9 +1472,14 @@ function App() {
                           <Icon name="lit" />
                           <span>Lit Action<br />(test)</span>
                         </div> */}
-                        <div onClick={() => onOrbisTest()} className={`action ${!currentPKP ? 'disabled' : ''}`}>
+                        <div onClick={() => onLitActionsCreatePost()} className={`action ${!currentPKP ? 'disabled' : ''}`}>
                           <Icon name="lit" />
-                          <span>Lit Action<br />(CreatePost)</span>
+                          <span>Lit Action<br />(Create Post)</span>
+                        </div>
+
+                        <div onClick={() => onLitActionsGetPosts()} className={`action ${!currentPKP ? 'disabled' : ''}`}>
+                          <Icon name="lit" />
+                          <span>Lit Action<br />(Get Posts)</span>
                         </div>
                       </section>
 

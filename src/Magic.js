@@ -2,7 +2,7 @@ import { PKPWallet } from "@lit-protocol/pkp-ethers.js";
 import { ethers } from "ethers";
 import { hexlify } from "ethers/lib/utils";
 
-// Magic is a class that implements the EIP-1193 Ethereum Provider JavaScript API.
+// Magic implemented the EIP-1193 Ethereum Provider JavaScript API.
 
 export class Magic extends PKPWallet {
 
