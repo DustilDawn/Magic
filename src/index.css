@@ -583,6 +583,9 @@ span.inactive {
   height: 100%;
   color: #f57689;
 }
+.seed svg{
+  fill: white;
+}
 .gradient-0 {
   background: linear-gradient(135deg, #042340 0%, #004386 100%);
 }

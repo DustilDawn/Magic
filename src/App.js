@@ -1,5 +1,5 @@
 import { Orbis } from "orbis-sdk";
-import LitJsSdk, { LitNodeClient } from "lit-js-sdk";
+import LitJsSdk from "lit-js-sdk";
 import { useEffect, useState } from 'react';
 
 import { ethers } from 'ethers';
@@ -15,9 +15,8 @@ import { LitContracts } from "@lit-protocol/contracts-sdk";
 import Blockies from 'react-blockies';
 import { Magic } from "./Magic";
 import { Cacao, SiweMessage } from '@didtools/cacao';
-// import { encodeDIDWithLit } from "key-did-provider-secp256k1-with-lit";
+
 import { randomBytes, randomString } from "@stablelib/random";
-import { arrayify, hashMessage } from "ethers/lib/utils";
 import { DIDSession, createDIDKey, createDIDCacao } from 'did-session'
 import { CeramicClient } from '@ceramicnetwork/http-client'
 import { TileDocument } from '@ceramicnetwork/stream-tile'
@@ -183,7 +182,7 @@ function App() {
 
     var start = new Date().getTime();
 
-    var code = await getCode(payload.file);
+    var code = payload.code ?? await getCode(payload.file);
 
     console.warn("currentPKP.pubKey:", currentPKP.pubKey);
 
@@ -374,6 +373,13 @@ function App() {
 
   }
 
+  function getLinks(docId) {
+    return {
+      orbis: `https://app.orbis.club/post/${docId}`,
+      cerscan: `https://cerscan.com/mainnet/stream/${docId}`
+    }
+  }
+
   async function onProofPost() {
     setProofPosting(true);
     setProofPostingMessage('Proof posting to Orbis...');
@@ -385,8 +391,8 @@ function App() {
     if (res.status === 200) {
       setProofPostingResult(JSON.stringify({
         profile: ``,
-        orbis: `https://app.orbis.club/post/${res.doc}`,
-        cerscan: `https://cerscan.com/mainnet/stream/${res.doc}`
+        orbis: getLinks(res.doc).orbis,
+        cerscan: getLinks(res.doc).cerscan,
       }));
     }
   }
@@ -503,8 +509,6 @@ function App() {
 
     if (res.status !== 200) throw new Error(res.message);
   }
-
-
 
   async function editPost() {
     let streamId = 'kjzl6cwe1jw148mdbse0ke7b6ygro8unpxmai219i41wyj221f525c5z98z7uxi';
@@ -1114,46 +1118,59 @@ function App() {
 
   }
 
+  async function getSession() {
+    const orbis = new orbisSdk.Orbis();
+
+    const ceramic = new CeramicClient("https://node1.orbis.club/");
+
+    const CONTROLLER_AUTHSIG = await LitJsSdk.checkAndSignAuthMessage({
+      chain: "mumbai",
+    });
+
+    const magicWallet = new Magic({
+      pkpPubKey: currentPKP.pubKey,
+      controllerAuthSig: CONTROLLER_AUTHSIG,
+      provider: "https://rpc-mumbai.maticvigil.com",
+    });
+
+    await magicWallet.connect();
+
+    const session = await orbis.getSession(magicWallet);
+    console.log("session:", session);
+    return session;
+  }
+
   // use lit action to use orbis sdk
   async function onOrbisTest() {
 
-    const TEST = 0;
+    const VERSION = 0;
 
-    if (TEST === 0) {
-      const SESSION_KEY = "eyJzZXNzaW9uS2V5U2VlZCI6ImVzSTViUzB2YmNFenhEbFBZL2JmS1ZuZXNkV1ZTWEJudlJtQ0JCSEFNN1E9IiwiY2FjYW8iOnsiaCI6eyJ0IjoiZWlwNDM2MSJ9LCJwIjp7ImRvbWFpbiI6ImxvY2FsaG9zdCIsImlhdCI6IjIwMjItMTItMjFUMjM6NDE6NTguNjc4WiIsImlzcyI6ImRpZDpwa2g6ZWlwMTU1OjE6MHg2ZDMwYTlmNzlhMzVmZTNlZGUxODI3ZjhmZDAwNTBhZGE2ZmVhOTAxIiwiYXVkIjoiZGlkOmtleTp6Nk1rajh1cnN3cHVBS3l2TEcxdllYSDRDUld3NFpWaXFBV1E3M3JCbjVaN2VyTWEiLCJ2ZXJzaW9uIjoiMSIsIm5vbmNlIjoiZWlOTG1ScXRneCIsImV4cCI6IjIwMjMtMDMtMjFUMjM6NDE6NTguNjc4WiIsInN0YXRlbWVudCI6IkdpdmUgdGhpcyBhcHBsaWNhdGlvbiBhY2Nlc3MgdG8gc29tZSBvZiB5b3VyIGRhdGEgb24gQ2VyYW1pYyIsInJlc291cmNlcyI6WyJjZXJhbWljOi8vKiJdfSwicyI6eyJ0IjoiZWlwMTkxIiwicyI6IjB4OTQ0ZTk5NWQ4Mzg1Y2E2YzU0M2M3ODJhMGQ2YzEwZjVmZWViODVjY2I1NTZlMGNiZmMzMWNjZWFhZjVkNTI5YzVkNjlhZTU4YmI0MjY1YmYwNTZjMzhhNGM5YzkxZWMyMTkzMjVkN2E3NzdhZWE0NmVjNDE3NDgwNTQxMGVhOGExYiJ9fX0";
+    if (VERSION === 0) {
 
-      await runLitAction({
+      const { ceramicSession } = await getSession();
+
+      const res = await runLitAction({
         file: 'orbis-sdk',
-        params:{
-          SESSION_KEY
+        params: {
+          method: 'create_post',
+          sessionKey: ceramicSession,
+          content: {
+            body: "gm!@#",
+          }
         }
       });
+
+      const postId = res.logs.split('\n').filter(line => line.includes('post'))[0].split('=>')[1].trim();
+
+      console.log("postId:", postId);
     }
 
-    if (TEST === 1) {
-      const orbis = new orbisSdk.Orbis();
+    if (VERSION === 1) {
 
-      const ceramic = new CeramicClient("https://node1.orbis.club/");
+      const session = await DIDSession.fromSession(session.ceramicSession);
 
-      const CONTROLLER_AUTHSIG = await LitJsSdk.checkAndSignAuthMessage({
-        chain: "mumbai",
-      });
-
-      const magicWallet = new Magic({
-        pkpPubKey: (viewType === 0 ? pkps : authorizedPkps)[selectedCardIndex].pubKey,
-        controllerAuthSig: CONTROLLER_AUTHSIG,
-        provider: "https://rpc-mumbai.maticvigil.com",
-      });
-
-      await magicWallet.connect();
-
-      const session = await orbis.getSession(magicWallet);
+      ceramic.did = session.did;
       console.log("session:", session);
-
-      const session2 = await DIDSession.fromSession("eyJzZXNzaW9uS2V5U2VlZCI6ImVzSTViUzB2YmNFenhEbFBZL2JmS1ZuZXNkV1ZTWEJudlJtQ0JCSEFNN1E9IiwiY2FjYW8iOnsiaCI6eyJ0IjoiZWlwNDM2MSJ9LCJwIjp7ImRvbWFpbiI6ImxvY2FsaG9zdCIsImlhdCI6IjIwMjItMTItMjFUMjM6NDE6NTguNjc4WiIsImlzcyI6ImRpZDpwa2g6ZWlwMTU1OjE6MHg2ZDMwYTlmNzlhMzVmZTNlZGUxODI3ZjhmZDAwNTBhZGE2ZmVhOTAxIiwiYXVkIjoiZGlkOmtleTp6Nk1rajh1cnN3cHVBS3l2TEcxdllYSDRDUld3NFpWaXFBV1E3M3JCbjVaN2VyTWEiLCJ2ZXJzaW9uIjoiMSIsIm5vbmNlIjoiZWlOTG1ScXRneCIsImV4cCI6IjIwMjMtMDMtMjFUMjM6NDE6NTguNjc4WiIsInN0YXRlbWVudCI6IkdpdmUgdGhpcyBhcHBsaWNhdGlvbiBhY2Nlc3MgdG8gc29tZSBvZiB5b3VyIGRhdGEgb24gQ2VyYW1pYyIsInJlc291cmNlcyI6WyJjZXJhbWljOi8vKiJdfSwicyI6eyJ0IjoiZWlwMTkxIiwicyI6IjB4OTQ0ZTk5NWQ4Mzg1Y2E2YzU0M2M3ODJhMGQ2YzEwZjVmZWViODVjY2I1NTZlMGNiZmMzMWNjZWFhZjVkNTI5YzVkNjlhZTU4YmI0MjY1YmYwNTZjMzhhNGM5YzkxZWMyMTkzMjVkN2E3NzdhZWE0NmVjNDE3NDgwNTQxMGVhOGExYiJ9fX0");
-
-      ceramic.did = session2.did;
-      console.log("session2:", session2);
 
       orbis.ceramic = ceramic;
 
@@ -1391,17 +1408,17 @@ function App() {
                           <img src="https://orbis.club/img/orbis-logo.png" alt="orbis" />
                           <span>Orbis<br />Proof Post</span>
                         </div>
-                        <div onClick={() => onLitActionsPrivateKey()} className={`action ${!currentPKP ? 'disabled' : ''}`}>
-                          <Icon name="lit" />
-                          <span>Lit Action<br />(privkey)</span>
+                        <div onClick={() => onLitActionsPrivateKey()} className={`seed action ${!currentPKP ? 'disabled' : ''}`}>
+                          <Icon name="seed" />
+                          <span>Lit Action<br />(Seed)</span>
                         </div>
                         <div onClick={() => onLitActionsTest()} className={`action ${!currentPKP ? 'disabled' : ''}`}>
                           <Icon name="lit" />
                           <span>Lit Action<br />(test)</span>
                         </div>
-                        <div onClick={() => onOrbisTest()} className="action">
-                          <img src="https://orbis.club/img/orbis-logo.png" alt="orbis" />
-                          <span>Lit Action (orbis)</span>
+                        <div onClick={() => onOrbisTest()} className={`action ${!currentPKP ? 'disabled' : ''}`}>
+                          <Icon name="lit" />
+                          <span>Lit Action<br />(CreatePost)</span>
                         </div>
                       </section>
 
