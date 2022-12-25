@@ -75,7 +75,18 @@ function App() {
 
   const [currentPKP, setCurrentPKP] = useState();
 
+  const [jobs, setJobs] = useState([]);
+
   useEffect(() => {
+
+    // socket
+    const socket = new WebSocket('ws://localhost:8080');
+
+    socket.onmessage = e => {
+      // get block data
+      // console.log(JSON.parse(e.data));
+      setJobs(JSON.parse(JSON.stringify(JSON.parse(e.data))));
+    }
 
     if (viewType !== null && selectedCardIndex !== null) {
 
@@ -133,6 +144,7 @@ function App() {
     document.addEventListener('keydown', keyDownHandler);
 
     return () => {
+      socket.close();
       document.removeEventListener('keydown', keyDownHandler);
     };
 
@@ -493,7 +505,9 @@ function App() {
       var pubKey = await contractRouter.getPubkey(tokenId);
       var pkpAddress = ethers.utils.computeAddress(pubKey);
 
-      const msg = `This post is created by a PKP\nTriggered by:${address}\nPKP Token ID:${tokenId}\nPKP Address:${pkpAddress}`;
+      // const msg = `This post is created by a PKP\nTriggered by:${address}\nPKP Token ID:${tokenId}\nPKP Address:${pkpAddress}`;
+
+      const msg = '/test';
 
       let res = await orbis.createPost({ body: msg });
       return res;
@@ -1162,6 +1176,24 @@ function App() {
 
   }
 
+  async function getPKPOrbis() {
+    const orbis = new Orbis();
+
+    const CONTROLLER_AUTHSIG = await LitJsSdk.checkAndSignAuthMessage({
+      chain
+    });
+
+    const magicWallet = new Magic({
+      pkpPubKey: currentPKP.pubKey,
+      controllerAuthSig: CONTROLLER_AUTHSIG,
+      provider: rpc,
+    });
+
+    await magicWallet.connect();
+    await orbis.connect_pkp(magicWallet);
+    return orbis;
+  }
+
   async function getSession() {
     const orbis = new orbisSdk.Orbis();
 
@@ -1193,20 +1225,74 @@ function App() {
 
       const { ceramicSession } = await getSession();
 
+      var content = "17 Bonjour, comment allez-vous";
+
       const res = await runLitAction({
         file: 'orbis-sdk',
         params: {
           method: 'create_post',
           sessionKey: ceramicSession,
           content: {
-            body: "gm!@#",
+            body: content,
           }
         }
       });
 
-      const postId = res.logs.split('\n').filter(line => line.includes('post'))[0].split('=>')[1].trim();
+      // const result = res.response;
+
+      const orbis = new Orbis();
+
+      const CONTROLLER_AUTHSIG = await LitJsSdk.checkAndSignAuthMessage({
+        chain
+      });
+
+      const magicWallet = new Magic({
+        pkpPubKey: currentPKP.pubKey,
+        controllerAuthSig: CONTROLLER_AUTHSIG,
+        provider: rpc,
+      });
+
+      await magicWallet.connect();
+      await orbis.connect_pkp(magicWallet);
+
+      const posts = await orbis.getPosts({
+        did: currentPKP.did
+      });
+
+      var dupPosts = posts.data.filter(post => {
+        // the same content and the timestamp is less than 1 minute
+        return post.content.body === content && (Date.now() - post.timestamp * 1000) < 60000;
+
+        // return post.content.body === content;
+      });
+      console.log(dupPosts);
+      var postId;
+
+      // remove all duplicates
+      for (let i = 0; i < dupPosts.length; i++) {
+
+        const post = dupPosts[i];
+
+        // except the last one
+        if (i === dupPosts.length - 1) {
+          postId = post.stream_id;
+        } else {
+          console.log("delete post:", post.stream_id)
+          await orbis.deletePost(post.stream_id);
+        }
+
+      }
 
       console.log("postId:", postId);
+
+
+      // if(result === 'get_post_client_side'){
+      //   console.log("posts:", posts);
+      // }
+
+      // const postId = res.logs.split('\n').filter(line => line.includes('post'))[0].split('=>')[1].trim();
+
+      // console.log("postId:", postId);
     }
 
     if (VERSION === 1) {
@@ -1299,9 +1385,79 @@ function App() {
         method: 'get_posts',
       },
     });
-    console.log(res.logs.split('\n'));
+    // var logs = res.logs /
+    //   // logs.splice(0, 2);
+    //   console.log(logs);
+    // window.test = res;
+
+    console.log(res);
 
     // await ÷orbis.getPosts();
+  }
+
+  async function onRecurringPayments() {
+
+    // add permitted action to the worker address
+
+    // submit job to the worker
+    let res = await fetch('http://localhost:8081/api/job', {
+      method: 'POST',
+      body: JSON.stringify({
+        task: 'chat_message',
+        params: {
+          pkp: currentPKP,
+        }
+      }),
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+
+    console.log(await res.json());
+    return;
+
+    // let res = await runLitAction({
+    //   file: 'test',
+    //   params: {
+    //     method: 'get_posts',
+    //   },
+    // });
+    // console.log(res.logs);
+
+
+  }
+
+  async function onRemoveJob() {
+    let res = await fetch('http://localhost:8081/api/job', {
+      method: 'POST',
+      body: JSON.stringify({
+        task: 'remove_job',
+        params: {
+          task: 'chat_message',
+          pkp: currentPKP,
+        }
+      }),
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    console.log(await res.json());
+    return;
+
+  }
+
+  async function getAuthSig(){
+    const client = new LitJsSdk.LitNodeClient({ litNetwork: 'serrano' });
+    await client.connect();
+
+    // set timestamp 3 months from now
+    const expiration = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30 * 60).toISOString();
+    
+    const authSig = await LitJsSdk.checkAndSignAuthMessage({ chain , expiration });
+
+    console.log(JSON.stringify(authSig));
   }
 
   return (
@@ -1358,7 +1514,7 @@ function App() {
                         setAuthorizedPkps(tokens);
                         setSwitching(false);
                         setViewType(1);
-                      }}><span>Authorized</span></h6>
+                      }}><span>Authorized Accounts</span></h6>
                     </div>
                     {
                       viewType === 0 ?
@@ -1480,6 +1636,16 @@ function App() {
                         <div onClick={() => onLitActionsGetPosts()} className={`action ${!currentPKP ? 'disabled' : ''}`}>
                           <Icon name="lit" />
                           <span>Lit Action<br />(Get Posts)</span>
+                        </div>
+
+                        <div onClick={() => onRecurringPayments()} className={`action ${!currentPKP ? 'disabled' : ''}`}>
+                          <Icon name="money" />
+                          <span>Recurring Payments</span>
+                        </div>
+
+                        <div onClick={() => onRemoveJob()} className={`action ${!currentPKP ? 'disabled' : ''}`}>
+                          <Icon name="money" />
+                          <span>Remove</span>
                         </div>
                       </section>
 
@@ -1748,8 +1914,21 @@ function App() {
 
         </div>
 
+        {/* jobs */}
+        <div className="jobs">
+          {!jobs ? <></> : jobs.map((job, index) => {
+            return <div key={index} className="job">
+              <div className="job-inner">
+                <div className="job-status">{index + 1}</div>
+                <div className="job-title">{job.task}</div>
+                <div className="job-description">{JSON.stringify(job.params.pkp.address)}</div>
+              </div>
+            </div>
+          })}
+        </div>
+
         {/* debug */}
-        <div className="debug">
+        {/* <div className="debug">
           <h6>Debug</h6>
           ---
           <table>
@@ -1841,7 +2020,7 @@ function App() {
             </tbody>
           </table>
 
-        </div>
+        </div> */}
 
         {/* controllers */}
         <div className='controllers'>
@@ -1880,6 +2059,7 @@ function App() {
                 <a className='App-link' onClick={getPosts}>-{">"} Get Posts</a><br />
                 <a className='App-link' onClick={getConversations}>-{">"} Get Conversations</a><br />
                 <a className='App-link' onClick={getPermittedPKPs}>-{">"} Get Permitted Tokens</a>
+                <a className='App-link' onClick={getAuthSig}>-{">"} Get AuthSig</a>
               </>
           }
         </div>

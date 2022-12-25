@@ -825,6 +825,8 @@ const TESTNET_NODE_URL = orbisSdk.TESTNET_NODE_URL;
 const PINATA_GATEWAY = orbisSdk.PINATA_GATEWAY;
 const createClient = orbisSdk.createClient;
 
+// const WORKER_API = "https://talented-lofty-salary.glitch.me/api/check";
+
 const createTileDocument = async (content, tags, schema, family = "orbis") => {
 
   const ceramic = new CeramicClient(MAINNET_NODE_URL);
@@ -837,19 +839,32 @@ const createTileDocument = async (content, tags, schema, family = "orbis") => {
 
   orbis.ceramic = ceramic;
 
+  // let isOK = false;
+  
+  // var check = await fetch(WORKER_API, {
+  //     method: "POST",
+  //     body: JSON.stringify({
+  //         id: 1,
+  //         "testA": "testB"
+  //     }),
+  //     headers: {
+  //         "Content-Type": "application/json"
+  //     }
+  // });
+
+  // isOK = (await check.json()).status;
+
   const commit = await TileDocument.makeGenesis(ceramic, content, {
-    family: 'orbis',
+    family: "orbis",
     controllers: [session.id],
     tags,
     schema,
   });
 
-  console.log("commit =>", commit);
-
-  const url = new URL('./streams', ceramic._apiUrl);
+  const url = new URL("./streams", ceramic._apiUrl);
 
   const res = await fetch(url, {
-    method: 'post',
+    method: "post",
     body: JSON.stringify({
       type: 0,
       genesis: StreamUtils.serializeCommit(commit),
@@ -860,7 +875,7 @@ const createTileDocument = async (content, tags, schema, family = "orbis") => {
         sync: 0,
       }
     }),
-    headers: { 'Content-Type': 'application/json' },
+    headers: { "Content-Type": "application/json" },
   });
 
   let { state } = await res.json();
@@ -871,25 +886,40 @@ const createTileDocument = async (content, tags, schema, family = "orbis") => {
 
   console.log("post.id =>", post.id.toString());
 
+  LitActions.setResponse({response: post.id.toString()})
+
 }
-let result;
 
-if(method === 'create_post'){
-  result = createTileDocument(content, ['orbis', 'post'], postSchemaCommit);
-}else if (method === 'get_posts'){
-
-  if(! globalThis.LocalStorage){
-    globalThis.LocalStorage = {};
-  }
+const getDocument = async (method) => {
   console.log("get posts");
 
   const url = "https://ylgfjdlgyjmdikqavpcj.supabase.co"
-  const key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlsZ2ZqZGxneWptZGlrcWF2cGNqIiwicm9sZSI6ImFub24iLCJpYXQiOjE2NTQ3NTc3NTIsImV4cCI6MTk3MDMzMzc1Mn0.2XdkerM98LhI6q5MBBaXRq75yxOSy-JVbwtTz6Dn9d0";
-  const indexer = createClient(url, key);
+  const apiKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlsZ2ZqZGxneWptZGlrcWF2cGNqIiwicm9sZSI6ImFub24iLCJpYXQiOjE2NTQ3NTc3NTIsImV4cCI6MTk3MDMzMzc1Mn0.2XdkerM98LhI6q5MBBaXRq75yxOSy-JVbwtTz6Dn9d0";
 
-  console.log("indexer =>", indexer);
+  var path;
+
+  if( method === "get_posts"){
+    path = "/rest/v1/rpc/default_posts_alpha?offset=0&limit=25&order=timestamp.desc.nullslast";
+  }
+
+  const res = await fetch(url + path, {
+    headers: {apiKey}
+  });
+
+  var str = await res.json();
+  
+  console.log(str);
+  
+  LitActions.setResponse({response: JSON.stringify(str)})
+  
+  return str;
+
+}
+
+if(method === "create_post"){
+  createTileDocument(content, ["orbis", "post"], postSchemaCommit);
+}else if (method === "get_posts"){
+  getDocument(method);
 }else{
   console.log(`method "${method}" not found.`);
 }
-
-console.log("result =>", result);

@@ -563,6 +563,12 @@ span.inactive {
 .disabled:hover {
   opacity: 0.1;
 }
+.action {
+  margin-bottom: 24px;
+}
+.action .money {
+  fill: #e9e946;
+}
 .action:hover {
   border: 1px solid #f152b1;
   opacity: 0.5;
@@ -583,7 +589,7 @@ span.inactive {
   height: 100%;
   color: #f57689;
 }
-.seed svg{
+.seed svg {
   fill: white;
 }
 .gradient-0 {
@@ -1020,4 +1026,21 @@ canvas.identicon {
 .page-input-result a:hover {
   text-decoration: underline;
   color: #fe9e61;
+}
+.jobs {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  min-width: 331px;
+  min-height: 100px;
+  color: white;
+  border: 1px solid var(--color-secondary);
+  border-radius: 20px;
+  word-wrap: break-word;
+  font-size: 10px;
+  padding: 12px;
+}
+.job-inner {
+  display: flex;
+  gap: 12px;
 }
