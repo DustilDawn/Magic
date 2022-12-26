@@ -29,6 +29,7 @@ import { sha256 } from 'multiformats/hashes/sha2';
 import { toString } from 'uint8arrays/to-string';
 import { CacaoBlock } from '@didtools/cacao';
 import { orbisSdk } from "./orbis-sdk";
+import Dialog from "./Dialog";
 
 const smartContracts = {
   pkp: '0x86062B7a01B8b2e22619dBE0C15cbe3F7EBd0E92',
@@ -36,6 +37,12 @@ const smartContracts = {
   router: '0xEA287AF8d8835eb20175875e89576bf583539B37',
   routerAbi: require('./contracts/router.json'),
 }
+
+const BOT_ADDRESS = '0x019c5821577B1385d6d668d5f3F0DF16A9FA1269';
+const BOT_API = 'http://localhost:8081';
+const PAGE_MESSAGE_MONITOR = 'dialog-monitor-message';
+const PAGE_ORBIS_PROOF_POST = 'btn-action-proof-post';
+const PAGE_ORBIS_CREATE_POST = 'page-orbis-create-post';
 
 function App() {
 
@@ -76,16 +83,32 @@ function App() {
   const [currentPKP, setCurrentPKP] = useState();
 
   const [jobs, setJobs] = useState([]);
+  const [monitorEnabled, setMonitorEnabled] = useState(false);
+
+  const [iframeActive, setIframeActive] = useState(false);
+  const [iframeLink, setIframeLink] = useState();
+  const [signal, sendSignal] = useState(0);
 
   useEffect(() => {
+
+    if (address && user && pkps && lit && orbis && !authorizing && !unauthorizing && !success && !error && contracts && currentPKP !== null) {
+      setLoggedIn(true);
+      // setActivePage(0);
+      // setActivePage('x');
+      // setActivePage('io');
+      // setActivePage('psaa');
+    } else {
+      setLoggedIn(false);
+    }
+
 
     // socket
     const socket = new WebSocket('ws://localhost:8080');
 
     socket.onmessage = e => {
-      // get block data
-      // console.log(JSON.parse(e.data));
-      setJobs(JSON.parse(JSON.stringify(JSON.parse(e.data))));
+      const data = JSON.parse(JSON.stringify(JSON.parse(e.data)));
+      console.log(data);
+      setJobs(data);
     }
 
     if (viewType !== null && selectedCardIndex !== null) {
@@ -106,16 +129,8 @@ function App() {
 
     }
 
-    if (address && user && pkps && lit && orbis && !authorizing && !unauthorizing && !success && !error && !contracts & !currentPKP) {
-      setLoggedIn(true);
-      setActivePage(0);
-      // setActivePage('x');
-      // setActivePage('io');
-      // setActivePage('psaa');
+    check();
 
-    } else {
-      setLoggedIn(false);
-    }
 
     if (time == null) {
       setTime(getCurrentTime())
@@ -129,7 +144,17 @@ function App() {
 
       if (event.key === 'Escape') {
         event.preventDefault();
+
+        // check if id="second-device" has class="active"
+        var secondDevice = document.getElementById('second-device');
+
+        if (iframeActive || secondDevice.classList.contains('active')) {
+          setIframeActive(false);
+          return;
+        }
+
         setActivePage(0);
+        sendSignal(signal => signal + 1);
 
         var timeout;
         clearTimeout(timeout);
@@ -148,7 +173,38 @@ function App() {
       document.removeEventListener('keydown', keyDownHandler);
     };
 
-  }, [address, user, pkps, lit, orbis, contracts, selectedCardIndex, viewType])
+  }, [address, user, pkps, lit, orbis, contracts, selectedCardIndex, viewType, jobs])
+
+  // if (!monitorCheck) {
+  async function check() {
+
+    var res;
+
+    try {
+      res = await fetch(`${BOT_API}/api/has/job`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          params: {
+            pkp: currentPKP,
+          }
+        })
+      });
+
+      var status = (await res.json()).status;
+
+      if (status === 'job exists') {
+        setMonitorEnabled(true);
+      } else {
+        setMonitorEnabled(false);
+      }
+    } catch (e) {
+      console.log('not ready');
+      setMonitorEnabled(false);
+    }
+  }
 
   function scrollToCard(cardIndex, { start = 0, ms = 1000 }) {
 
@@ -439,7 +495,9 @@ function App() {
   async function onProofPost() {
     setProofPosting(true);
     setProofPostingMessage('Proof posting to Orbis...');
-    var res = await magicActionHandler({ method: 'proof_post' });
+    var res = await magicActionHandler({
+      method: 'proof_post',
+    });
 
     setProofPosting(false);
     setProofPostingMessage();
@@ -505,9 +563,7 @@ function App() {
       var pubKey = await contractRouter.getPubkey(tokenId);
       var pkpAddress = ethers.utils.computeAddress(pubKey);
 
-      // const msg = `This post is created by a PKP\nTriggered by:${address}\nPKP Token ID:${tokenId}\nPKP Address:${pkpAddress}`;
-
-      const msg = '/test';
+      const msg = `This post is created by a PKP\nTriggered by:${address}\nPKP Token ID:${tokenId}\nPKP Address:${pkpAddress}`;
 
       let res = await orbis.createPost({ body: msg });
       return res;
@@ -1225,7 +1281,7 @@ function App() {
 
       const { ceramicSession } = await getSession();
 
-      var content = "17 Bonjour, comment allez-vous";
+      var content = "Merry Christmas everyone!";
 
       const res = await runLitAction({
         file: 'orbis-sdk',
@@ -1240,20 +1296,22 @@ function App() {
 
       // const result = res.response;
 
-      const orbis = new Orbis();
+      const orbis = await getPKPOrbis();
 
-      const CONTROLLER_AUTHSIG = await LitJsSdk.checkAndSignAuthMessage({
-        chain
-      });
+      // const orbis = new Orbis();
 
-      const magicWallet = new Magic({
-        pkpPubKey: currentPKP.pubKey,
-        controllerAuthSig: CONTROLLER_AUTHSIG,
-        provider: rpc,
-      });
+      // const CONTROLLER_AUTHSIG = await LitJsSdk.checkAndSignAuthMessage({
+      //   chain
+      // });
 
-      await magicWallet.connect();
-      await orbis.connect_pkp(magicWallet);
+      // const magicWallet = new Magic({
+      //   pkpPubKey: currentPKP.pubKey,
+      //   controllerAuthSig: CONTROLLER_AUTHSIG,
+      //   provider: rpc,
+      // });
+
+      // await magicWallet.connect();
+      // await orbis.connect_pkp(magicWallet);
 
       const posts = await orbis.getPosts({
         did: currentPKP.did
@@ -1284,15 +1342,6 @@ function App() {
       }
 
       console.log("postId:", postId);
-
-
-      // if(result === 'get_post_client_side'){
-      //   console.log("posts:", posts);
-      // }
-
-      // const postId = res.logs.split('\n').filter(line => line.includes('post'))[0].split('=>')[1].trim();
-
-      // console.log("postId:", postId);
     }
 
     if (VERSION === 1) {
@@ -1395,69 +1444,112 @@ function App() {
     // await ÷orbis.getPosts();
   }
 
-  async function onRecurringPayments() {
+  async function onAddJob() {
 
-    // add permitted action to the worker address
+    var res = {};
 
-    // submit job to the worker
-    let res = await fetch('http://localhost:8081/api/job', {
-      method: 'POST',
-      body: JSON.stringify({
-        task: 'chat_message',
-        params: {
-          pkp: currentPKP,
+    try {
+      res = await fetch(BOT_API + '/api/job', {
+        method: 'POST',
+        body: JSON.stringify({
+          task: 'chat_message',
+          params: {
+            pkp: currentPKP,
+          }
+        }),
+        headers: {
+          'Content-Type': 'application/json'
         }
-      }),
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-
-
-    console.log(await res.json());
-    return;
-
-    // let res = await runLitAction({
-    //   file: 'test',
-    //   params: {
-    //     method: 'get_posts',
-    //   },
-    // });
-    // console.log(res.logs);
-
-
+      });
+      // res.status = 200;
+    } catch (e) {
+      console.log(e);
+      res.status = 500;
+    }
+    return res;
   }
 
   async function onRemoveJob() {
-    let res = await fetch('http://localhost:8081/api/job', {
-      method: 'POST',
-      body: JSON.stringify({
-        task: 'remove_job',
-        params: {
-          task: 'chat_message',
-          pkp: currentPKP,
-        }
-      }),
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
+    var res = {};
 
-    console.log(await res.json());
-    return;
+    try {
+      res = await fetch(BOT_API + '/api/job', {
+        method: 'POST',
+        body: JSON.stringify({
+          task: 'remove_job',
+          params: {
+            task: 'chat_message',
+            pkp: currentPKP,
+          }
+        }),
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      // res.status = 200;
+    } catch (e) {
+      console.log(e);
+      res.status = 500;
+    }
+
+    return res;
 
   }
 
-  async function getAuthSig(){
+  async function getAuthSig() {
     const client = new LitJsSdk.LitNodeClient({ litNetwork: 'serrano' });
     await client.connect();
 
     // set timestamp 3 months from now
     const expiration = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30 * 60).toISOString();
-    
-    const authSig = await LitJsSdk.checkAndSignAuthMessage({ chain , expiration });
+
+    const authSig = await LitJsSdk.checkAndSignAuthMessage({ chain, expiration });
 
     console.log(JSON.stringify(authSig));
+  }
+
+  async function permitBot() {
+    var tx;
+    var res = {};
+
+    try {
+      tx = await contracts.pkpPermissionsContract.write.addPermittedAddress(currentPKP.tokenId, BOT_ADDRESS, []);
+      res = await tx.wait();
+      console.log("addPermittedAddress=>", result);
+      res.status = 200;
+    } catch (e) {
+      console.log(e);
+      res.status = 500;
+    }
+    return res;
+  }
+
+  async function revokeBot() {
+    var tx;
+    var res = {};
+    try {
+      tx = await contracts.pkpPermissionsContract.write.removePermittedAddress(currentPKP.tokenId, BOT_ADDRESS);
+      res = await tx.wait();
+      res.status = 200;
+    } catch (e) {
+      console.log(e);
+      res.status = 500;
+    }
+    console.log("removePermittedAddress=>", res);
+    return res;
+  }
+
+  async function isBotPermitted() {
+    var isPermitted = await contracts.pkpPermissionsContract.read.isPermittedAddress(currentPKP.tokenId, BOT_ADDRESS);
+    console.log("isPermitted=>", isPermitted);
+    return isPermitted;
+  }
+
+  async function goto(link) {
+    setIframeLink(link);
+    // wait for 2 seconds
+    // await new Promise(r => setTimeout(r, 2000));
+    setIframeActive(true);
   }
 
   return (
@@ -1466,7 +1558,7 @@ function App() {
       <header className="App-header">
 
         {/* device */}
-        <div className={`device-apple ${loggedIn ? 'active' : ''}`}>
+        <div id="main-device" className={`device-apple ${iframeActive ? 'main' : ''} ${loggedIn ? 'active' : ''}`}>
 
           <div className="date">{time}</div>
           {
@@ -1532,7 +1624,7 @@ function App() {
 
                             return <div className={`credit-card ${(selectedCardIndex === i && flip) ? 'flip' : ''} gradient-${i} ${selectedCardIndex === i ? 'active' : ''}`} key={i}>
 
-                              <div className="cc-tap-to-select" onClick={() => {
+                              <div className="cc-tap-to-select" onClick={async () => {
                                 setSelectedCardIndex(i);
                                 setFlip(false);
                                 scrollToCard(i, { ms: 300 });
@@ -1589,16 +1681,16 @@ function App() {
 
                   <div className={`card-options ${!currentPKP ? 'disabled' : ''}`}>
                     <div className="card-option">
+                      <div onClick={() => setFlip(!flip)} className={`card-option-icon`}><Icon name="wallet" /></div>
+                      <span>Details</span>
+                    </div>
+                    <div className="card-option">
                       <div onClick={() => setContentIndex(0)} className={`${contentIndex === 0 ? 'active' : ''} card-option-icon`}><Icon name="app" /></div>
                       <span>Actions</span>
                     </div>
                     <div className="card-option">
                       <div onClick={() => setContentIndex(1)} className={`${contentIndex === 1 ? 'active' : ''} card-option-icon`}><Icon name="key" /></div>
                       <span>Auth</span>
-                    </div>
-                    <div className="card-option">
-                      <div onClick={() => setFlip(!flip)} className={`card-option-icon`}><Icon name="wallet" /></div>
-                      <span>Details</span>
                     </div>
                   </div>
 
@@ -1616,13 +1708,17 @@ function App() {
                       {/* Here's a list of actions you can perform with your account. */}
 
                       <section>
-                        <div onClick={() => setActivePage('btn-action-proof-post')} className={`action ${!currentPKP ? 'disabled' : ''}`}>
+                        <div onClick={() => setActivePage(PAGE_ORBIS_PROOF_POST)} className={`action ${!currentPKP ? 'disabled' : ''}`}>
                           <img src="https://orbis.club/img/orbis-logo.png" alt="orbis" />
                           <span>Orbis<br />Proof Post</span>
                         </div>
+                        <div onClick={() => setActivePage(PAGE_ORBIS_CREATE_POST)} className={`action ${!currentPKP ? 'disabled' : ''}`}>
+                          <img src="https://orbis.club/img/orbis-logo.png" alt="orbis" />
+                          <span>Orbis<br />Create Post</span>
+                        </div>
                         <div onClick={() => onLitActionsPrivateKey()} className={`seed action ${!currentPKP ? 'disabled' : ''}`}>
                           <Icon name="seed" />
-                          <span>Lit Action<br />(Seed)</span>
+                          <span>Lit Action<br />Seed</span>
                         </div>
                         {/* <div onClick={() => onLitActionsTest()} className={`action ${!currentPKP ? 'disabled' : ''}`}>
                           <Icon name="lit" />
@@ -1630,7 +1726,7 @@ function App() {
                         </div> */}
                         <div onClick={() => onLitActionsCreatePost()} className={`action ${!currentPKP ? 'disabled' : ''}`}>
                           <Icon name="lit" />
-                          <span>Lit Action<br />(Create Post)</span>
+                          <span>Lit Action<br />Create Post</span>
                         </div>
 
                         <div onClick={() => onLitActionsGetPosts()} className={`action ${!currentPKP ? 'disabled' : ''}`}>
@@ -1638,15 +1734,11 @@ function App() {
                           <span>Lit Action<br />(Get Posts)</span>
                         </div>
 
-                        <div onClick={() => onRecurringPayments()} className={`action ${!currentPKP ? 'disabled' : ''}`}>
-                          <Icon name="money" />
-                          <span>Recurring Payments</span>
+                        <div onClick={() => setActivePage(PAGE_MESSAGE_MONITOR)} className={`action ${!currentPKP ? 'disabled' : ''}`}>
+                          <Icon name={`${monitorEnabled ? 'listen-on' : 'listen-off'}`} />
+                          <span>Message Listener {monitorEnabled ? '(ON)' : '(OFF)'}</span>
                         </div>
 
-                        <div onClick={() => onRemoveJob()} className={`action ${!currentPKP ? 'disabled' : ''}`}>
-                          <Icon name="money" />
-                          <span>Remove</span>
-                        </div>
                       </section>
 
                     </div>
@@ -1834,7 +1926,7 @@ function App() {
           </div>
 
           {/* action handler */}
-          <div className={`page page-input ${activePage === 'btn-action-proof-post' ? 'btn-action-proof-post' : ''}`}>
+          <div className={`page page-input ${activePage === PAGE_ORBIS_PROOF_POST ? PAGE_ORBIS_PROOF_POST : ''}`}>
 
             <div className="page-input-inner">
               {/* <div className="text text-red cursor" onClick={() => setActivePage(0)}>Cancel</div> */}
@@ -1895,13 +1987,13 @@ function App() {
                   }
 
                   {
-                    proofPostingResult ? <div className="page-input-result example-format">
+                    proofPostingResult ? <div className="page-input-result example-format text-left">
                       {/* {JSON.stringify(proofPostingResult)} */}
                       <h6><span>Orbis</span></h6>
-                      <a target="_blank" alt="orbis post link" href={JSON.parse(proofPostingResult)?.orbis}>{JSON.parse(proofPostingResult)?.orbis}</a>
+                      <a onClick={() => goto(JSON.parse(proofPostingResult)?.orbis)}>{JSON.parse(proofPostingResult)?.orbis}</a>
                       <div className="separator-xxs"></div>
                       <h6><span>Cerscan</span></h6>
-                      <a target="_blank" alt="cerscan post link" href={JSON.parse(proofPostingResult)?.cerscan}>{JSON.parse(proofPostingResult)?.cerscan}</a>
+                      <a onClick={() => goto(JSON.parse(proofPostingResult)?.cerscan)}>{JSON.parse(proofPostingResult)?.cerscan}</a>
                     </div> : <></>
                   }
 
@@ -1912,10 +2004,184 @@ function App() {
             </div>
           </div>
 
-        </div>
+          {/* Orbis Create Post */}
+          {
+            !loggedIn ? '' :
+              <Dialog
+                signal={signal}
+                id={PAGE_ORBIS_CREATE_POST}
+                activePage={activePage}
+                pageTitle={`Create a Orbis Post using this PKP ${short(currentPKP.address)}`}
+                onCancel={() => setActivePage(0)}
+                onSubmit={async (
+                  data,
+                  setError,
+                  setSuccess,
+                  setLoading,
+                  setLoadingMessage,
+                  setPostContent,
+                ) => {
+                  setLoading(true);
+                  setLoadingMessage('Creating post...');
+
+                  var res;
+                  try {
+                    res = await magicActionHandler({
+                      method: 'create_post',
+                      data: data.inputValue,
+                    });
+                  } catch (e) {
+                    setError(e.message);
+                    setLoading(false);
+                    setLoadingMessage('');
+                    return;
+                  }
+
+                  if (res.status !== 200) {
+                    setError("Failed to create post.");
+                    setLoading(false);
+                    setLoadingMessage('');
+                    return;
+                  }
+
+                  setLoading(false);
+                  setLoadingMessage('');
+
+                  const links = getLinks(res.doc);
+                  // setSuccess("Post created successfully.");
+                  setPostContent(<>
+                    <div className="page-input-result example-format text-left">
+
+                      <h6><span>Orbis</span></h6>
+                      <a onClick={() => goto(links.orbis)}>{links.orbis}</a>
+                      <div className="separator-xxs"></div>
+                      <h6><span>Cerscan</span></h6>
+                      <a onClick={() => goto(links.cerscan)}>{links.cerscan}</a>
+                    </div>
+                  </>);
+
+
+                }}
+                submitText="Send (Enter)"
+                input={{
+                  placeholder: 'type your message here...'
+                }}
+              >
+              </Dialog>
+          }
+
+
+
+          {/* monitor */}
+          <Dialog
+            signal={signal}
+            id={PAGE_MESSAGE_MONITOR}
+            activePage={activePage}
+            pageTitle="Message Monitor Configuration"
+            onCancel={() => setActivePage(0)}
+            onSubmit={async (
+              data,
+              setError,
+              setSuccess,
+              setLoading,
+              setLoadingMessage,
+              setPostContent,
+            ) => {
+              setLoading(true);
+
+              setLoadingMessage('Checking permission...');
+
+              await new Promise((resolve) => setTimeout(resolve, 500));
+              var isPermitted = await isBotPermitted();
+
+              setLoadingMessage(`Bot is ${isPermitted ? '' : 'not '}permitted`);
+
+              await new Promise((resolve) => setTimeout(resolve, 500));
+
+              if (monitorEnabled === false) {
+
+                // if (isPermitted === false) {
+                //   setLoadingMessage('Permitting bot...');
+                //   try {
+                //     await permitBot();
+                //   } catch (e) {
+                //     setLoading(false);
+                //     setError('Bot permit failed');
+                //     return;
+                //   }
+                // }
+                // setLoadingMessage('Bot permitted. Adding job...');
+                var res = await onAddJob();
+
+                console.log("res:", res);
+
+                if (res.status !== 200) {
+                  setLoading(false);
+                  setError('Job add failed');
+                  return;
+                }
+                setLoading(false);
+                setSuccess('Job added successfully');
+                setMonitorEnabled(true);
+
+              } else {
+
+
+                // if (isPermitted === true) {
+                //   setLoadingMessage('Revoking bot...');
+                //   var res = await revokeBot();
+
+                //   if (res.status !== 200) {
+                //     setLoading(false);
+                //     setError('Bot revoke failed');
+                //     return;
+                //   }
+                // }
+                // setLoadingMessage('Bot revoked. Removing job...');
+                var res = await onRemoveJob();
+                console.log(res);
+                if (res.status === 200) {
+                  setLoading(false);
+                  setSuccess('Job removed successfully');
+                  setMonitorEnabled(false);
+                } else {
+                  setLoading(false);
+                  setError(res);
+                }
+              }
+
+            }}
+            submitText={monitorEnabled ? <>
+              <True />Enabled
+            </> : <><False />Disabled</>}
+            alertMessage={<>
+              By enabling this feature, you will allow our bot <span><a target="_blank" href={`https://mumbai.polygonscan.com/address/${BOT_ADDRESS}`}>{BOT_ADDRESS}</a></span> to access and analyze your PKP messages on Orbis Protocol and perform actions based on the commands it detects.
+            </>}
+          >
+            <div className="guide">
+              The following commands are available:
+              <ul>
+                <li>/send [address] [amount in wei]</li>
+                <li>/help</li>
+                <li className="disabled">/recurring-payment [address] [amount] [interval] [start] [end]</li>
+                <li className="disabled">more coming soon...</li>
+              </ul>
+            </div>
+          </Dialog>
+
+        </div >
+
+        {/* iframe */}
+        < div id="second-device" className={`iframe ${iframeActive ? 'active' : ''}`}>
+          <div className="close" onClick={() => setIframeActive(false)}>
+            <Icon name="close" />
+          </div>
+          <iframe className="device-apple" src={iframeLink}></iframe>
+        </div >
+
 
         {/* jobs */}
-        <div className="jobs">
+        < div className="jobs" >
           {!jobs ? <></> : jobs.map((job, index) => {
             return <div key={index} className="job">
               <div className="job-inner">
@@ -1925,10 +2191,10 @@ function App() {
               </div>
             </div>
           })}
-        </div>
+        </div >
 
         {/* debug */}
-        {/* <div className="debug">
+        < div className="debug" >
           <h6>Debug</h6>
           ---
           <table>
@@ -2017,19 +2283,23 @@ function App() {
                 <th>currentPKP:</th>
                 <td>{currentPKP ? short(currentPKP.tokenId) : ''}</td>
               </tr>
+              <tr>
+                <th>monitorEnabled:</th>
+                <td>{monitorEnabled ? <True /> : <False />}</td>
+              </tr>
             </tbody>
           </table>
 
-        </div> */}
+        </div >
 
         {/* controllers */}
-        <div className='controllers'>
+        < div className='controllers hide' >
 
           {/* merged operations */}
-          <a className='App-link' onClick={connect}>Connect</a><br />
+          < a className='App-link' onClick={connect} > Connect</a ><br />
           <a className='App-link' onClick={connectMagic}>Connect Magic</a><br />
 
-          ===<br />
+          === <br />
           {/* connect lit */}
           <a className='App-link' onClick={connectLit}>Connect Lit</a><br />
           {
@@ -2062,9 +2332,9 @@ function App() {
                 <a className='App-link' onClick={getAuthSig}>-{">"} Get AuthSig</a>
               </>
           }
-        </div>
-      </header>
-    </div>
+        </div >
+      </header >
+    </div >
   );
 }
 
