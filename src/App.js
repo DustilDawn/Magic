@@ -40,6 +40,9 @@ const smartContracts = {
 
 const BOT_ADDRESS = '0x019c5821577B1385d6d668d5f3F0DF16A9FA1269';
 const BOT_API = 'http://localhost:8081';
+const BOT_WS_API = 'ws://localhost:8080';
+// const BOT_API = 'http://18.234.166.31:8081';
+// const BOT_WS_API = 'ws://18.234.166.31:8080';
 const PAGE_MESSAGE_MONITOR = 'dialog-monitor-message';
 const PAGE_ORBIS_PROOF_POST = 'btn-action-proof-post';
 const PAGE_ORBIS_CREATE_POST = 'page-orbis-create-post';
@@ -88,6 +91,7 @@ function App() {
   const [iframeActive, setIframeActive] = useState(false);
   const [iframeLink, setIframeLink] = useState();
   const [signal, sendSignal] = useState(0);
+  const [socket, setSocket] = useState();
 
   useEffect(() => {
 
@@ -102,14 +106,7 @@ function App() {
     }
 
 
-    // socket
-    const socket = new WebSocket('ws://localhost:8080');
 
-    socket.onmessage = e => {
-      const data = JSON.parse(JSON.stringify(JSON.parse(e.data)));
-      console.log(data);
-      setJobs(data);
-    }
 
     if (viewType !== null && selectedCardIndex !== null) {
 
@@ -129,7 +126,26 @@ function App() {
 
     }
 
-    check();
+    if (loggedIn) {
+
+      if (!socket) {
+        // socket
+        const socket = new WebSocket(BOT_WS_API);
+        setSocket(socket);
+      }
+
+      if(socket){
+        console.log("socket =>", socket);
+        socket.onmessage = e => {
+          const data = JSON.parse(JSON.stringify(JSON.parse(e.data)));
+          console.log(data);
+          setJobs(data);
+        }
+      }
+      
+
+      check();
+    }
 
 
     if (time == null) {
@@ -169,7 +185,7 @@ function App() {
     document.addEventListener('keydown', keyDownHandler);
 
     return () => {
-      socket.close();
+      // socket.close();
       document.removeEventListener('keydown', keyDownHandler);
     };
 
@@ -1448,12 +1464,14 @@ function App() {
 
     var res = {};
 
+    console.log("Add 1");
     try {
       res = await fetch(BOT_API + '/api/job', {
         method: 'POST',
         body: JSON.stringify({
           task: 'chat_message',
           params: {
+            task: 'chat_message',
             pkp: currentPKP,
           }
         }),
@@ -1461,11 +1479,14 @@ function App() {
           'Content-Type': 'application/json'
         }
       });
+      console.log("Add 1 res:", res);
       // res.status = 200;
     } catch (e) {
+      console.log("Add 3");
       console.log(e);
       res.status = 500;
     }
+    console.log("Add 4");
     return res;
   }
 
@@ -2111,17 +2132,18 @@ function App() {
                 //   }
                 // }
                 // setLoadingMessage('Bot permitted. Adding job...');
+                
                 var res = await onAddJob();
 
                 console.log("res:", res);
 
                 if (res.status !== 200) {
                   setLoading(false);
-                  setError('Job add failed');
+                  setError('Bot has failed to start');
                   return;
                 }
                 setLoading(false);
-                setSuccess('Job added successfully');
+                setSuccess('Bot has started successfully');
                 setMonitorEnabled(true);
 
               } else {
@@ -2162,7 +2184,7 @@ function App() {
               The following commands are available:
               <ul>
                 <li>/send [address] [amount in wei]</li>
-                <li>/help</li>
+                {/* <li>/help</li> */}
                 <li className="disabled">/recurring-payment [address] [amount] [interval] [start] [end]</li>
                 <li className="disabled">more coming soon...</li>
               </ul>
@@ -2194,7 +2216,7 @@ function App() {
         </div >
 
         {/* debug */}
-        < div className="debug" >
+        < div className="debug hide" >
           <h6>Debug</h6>
           ---
           <table>
