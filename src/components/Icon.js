@@ -59,13 +59,14 @@ const Icon = ({ name, onClick }) => {
             }
             {
                 name === 'listen-on' ?
-                    <svg onClick={onClick} className="icon-listen-off MuiSvgIcon-root MuiSvgIcon-fontSizeMedium MuiSvgIcon-root MuiSvgIcon-fontSizeLarge css-1shn170" focusable="false" aria-hidden="true" viewBox="0 0 24 24" data-testid="StopIcon" tabIndex="-1" title="Stop"><path d="M6 6h12v12H6z"></path></svg>
+                    <svg onClick={onClick} className="icon-listen-off MuiSvgIcon-root MuiSvgIcon-fontSizeMedium MuiSvgIcon-root MuiSvgIcon-fontSizeLarge css-1shn170" focusable="false" aria-hidden="true" viewBox="0 0 24 24" data-testid="HearingIcon" tabIndex="-1" title="Hearing"><path d="M17 20c-.29 0-.56-.06-.76-.15-.71-.37-1.21-.88-1.71-2.38-.51-1.56-1.47-2.29-2.39-3-.79-.61-1.61-1.24-2.32-2.53C9.29 10.98 9 9.93 9 9c0-2.8 2.2-5 5-5s5 2.2 5 5h2c0-3.93-3.07-7-7-7S7 5.07 7 9c0 1.26.38 2.65 1.07 3.9.91 1.65 1.98 2.48 2.85 3.15.81.62 1.39 1.07 1.71 2.05.6 1.82 1.37 2.84 2.73 3.55.51.23 1.07.35 1.64.35 2.21 0 4-1.79 4-4h-2c0 1.1-.9 2-2 2zM7.64 2.64 6.22 1.22C4.23 3.21 3 5.96 3 9s1.23 5.79 3.22 7.78l1.41-1.41C6.01 13.74 5 11.49 5 9s1.01-4.74 2.64-6.36zM11.5 9c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5-1.12-2.5-2.5-2.5-2.5 1.12-2.5 2.5z"></path></svg>
 
                     : ''
             }
             {
                 name === 'listen-off' ?
-                    <svg onClick={onClick} className="icon-listen-on MuiSvgIcon-root MuiSvgIcon-fontSizeMedium MuiSvgIcon-root MuiSvgIcon-fontSizeLarge css-1shn170" focusable="false" aria-hidden="true" viewBox="0 0 24 24" data-testid="PlayArrowIcon" tabIndex="-1" title="PlayArrow"><path d="M8 5v14l11-7z"></path></svg>
+
+                    <svg onClick={onClick} className="icon-listen-on MuiSvgIcon-root MuiSvgIcon-fontSizeMedium MuiSvgIcon-root MuiSvgIcon-fontSizeLarge css-1shn170" focusable="false" aria-hidden="true" viewBox="0 0 24 24" data-testid="HearingDisabledIcon" tabIndex="-1" title="HearingDisabled"><path d="M6.03 3.2C7.15 2.44 8.51 2 10 2c3.93 0 7 3.07 7 7 0 1.26-.38 2.65-1.07 3.9-.02.04-.05.08-.08.13l-1.48-1.48c.4-.86.63-1.75.63-2.55 0-2.8-2.2-5-5-5-.92 0-1.76.26-2.5.67L6.03 3.2zm11.18 11.18 1.43 1.43C20.11 13.93 21 11.57 21 9c0-3.04-1.23-5.79-3.22-7.78l-1.42 1.42C17.99 4.26 19 6.51 19 9c0 2.02-.67 3.88-1.79 5.38zM10 6.5c-.21 0-.4.03-.59.08l3.01 3.01c.05-.19.08-.38.08-.59 0-1.38-1.12-2.5-2.5-2.5zm11.19 14.69L2.81 2.81 1.39 4.22l2.13 2.13C3.19 7.16 3 8.05 3 9h2c0-.36.05-.71.12-1.05l6.61 6.61c-.88.68-1.78 1.41-2.27 2.9-.5 1.5-1 2.01-1.71 2.38-.19.1-.46.16-.75.16-1.1 0-2-.9-2-2H3c0 2.21 1.79 4 4 4 .57 0 1.13-.12 1.64-.35 1.36-.71 2.13-1.73 2.73-3.55.32-.98.9-1.43 1.71-2.05.03-.02.05-.04.08-.06l6.62 6.62 1.41-1.42z"></path></svg>
 
                     : ''
             }
