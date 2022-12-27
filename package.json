@@ -27,10 +27,10 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "DISABLE_ESLINT_PLUGIN=true BROWSER=none react-scripts start",
-    "build": "DISABLE_ESLINT_PLUGIN=true BROWSER=none react-scripts build",
-    "test": "DISABLE_ESLINT_PLUGIN=true BROWSER=none react-scripts test",
-    "eject": "DISABLE_ESLINT_PLUGIN=true BROWSER=none react-scripts eject",
+    "start": "GENERATE_SOURCEMAP=false DISABLE_ESLINT_PLUGIN=true BROWSER=none react-scripts start",
+    "build": "GENERATE_SOURCEMAP=false DISABLE_ESLINT_PLUGIN=true BROWSER=none react-scripts build",
+    "test": "GENERATE_SOURCEMAP=false DISABLE_ESLINT_PLUGIN=true BROWSER=none react-scripts test",
+    "eject": "GENERATE_SOURCEMAP=false DISABLE_ESLINT_PLUGIN=true BROWSER=none react-scripts eject",
     "reader": "node ./server/reader.js"
   },
   "eslintConfig": {
