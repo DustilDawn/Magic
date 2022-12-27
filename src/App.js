@@ -30,6 +30,12 @@ import { toString } from 'uint8arrays/to-string';
 import { CacaoBlock } from '@didtools/cacao';
 import { orbisSdk } from "./orbis-sdk";
 import Dialog from "./Dialog";
+import { b64OrbisSdk } from "./server/b64-orbis-sdk";
+import { b64TileAction } from "./server/b64-tile-action";
+import { GenerateSeed } from "./GenerateSeed";
+import { Links } from "./components/Links";
+import { Guide } from "./components/Guide";
+import { OrbisProfile } from "./components/OrbisProfile";
 
 const smartContracts = {
   pkp: '0x86062B7a01B8b2e22619dBE0C15cbe3F7EBd0E92',
@@ -39,13 +45,15 @@ const smartContracts = {
 }
 
 const BOT_ADDRESS = '0x019c5821577B1385d6d668d5f3F0DF16A9FA1269';
-const BOT_API = 'http://localhost:8081';
-const BOT_WS_API = 'ws://localhost:8080';
-// const BOT_API = 'http://18.234.166.31:8081';
-// const BOT_WS_API = 'ws://18.234.166.31:8080';
+// const BOT_API = 'http://localhost:8081';
+// const BOT_WS_API = 'ws://localhost:8080';
+const BOT_API = 'http://18.234.166.31:8081';
+const BOT_WS_API = 'ws://18.234.166.31:8080';
 const PAGE_MESSAGE_MONITOR = 'dialog-monitor-message';
 const PAGE_ORBIS_PROOF_POST = 'btn-action-proof-post';
 const PAGE_ORBIS_CREATE_POST = 'page-orbis-create-post';
+const PAGE_LIT_ACTION_SEED = 'page-lit-action-seed';
+const PAGE_LIT_ACTION_CREATE_POST = 'page-lit-action-create-post';
 
 function App() {
 
@@ -93,6 +101,8 @@ function App() {
   const [signal, sendSignal] = useState(0);
   const [socket, setSocket] = useState();
 
+  const [seed, setSeed] = useState();
+
   useEffect(() => {
 
     if (address && user && pkps && lit && orbis && !authorizing && !unauthorizing && !success && !error && contracts && currentPKP !== null) {
@@ -131,18 +141,18 @@ function App() {
       if (!socket) {
         // socket
         const socket = new WebSocket(BOT_WS_API);
-        setSocket(socket);
-      }
-
-      if(socket){
-        console.log("socket =>", socket);
         socket.onmessage = e => {
           const data = JSON.parse(JSON.stringify(JSON.parse(e.data)));
           console.log(data);
           setJobs(data);
         }
+        setSocket(socket);
       }
-      
+
+      // if (socket) {
+      //   console.log("socket =>", socket);
+      // }
+
 
       check();
     }
@@ -166,6 +176,10 @@ function App() {
 
         if (iframeActive || secondDevice.classList.contains('active')) {
           setIframeActive(false);
+          var timeout = setTimeout(() => {
+            setIframeLink('');
+            clearTimeout(timeout);
+          }, 500);
           return;
         }
 
@@ -179,6 +193,25 @@ function App() {
           setProofPostingResult('');
         }, 500)
       }
+
+      if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        if (selectedCardIndex < pkps.length - 1) {
+          setSelectedCardIndex(selectedCardIndex => selectedCardIndex + 1);
+          setFlip(false);
+          scrollToCard(selectedCardIndex + 1, { ms: 300 });
+        }
+      }
+
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        if (selectedCardIndex > 0) {
+          setSelectedCardIndex(selectedCardIndex => selectedCardIndex - 1);
+          setFlip(false);
+          scrollToCard(selectedCardIndex - 1, { ms: 300 });
+        }
+      }
+
     };
 
     // loading state
@@ -288,19 +321,27 @@ function App() {
 
   async function getCode(file = '') {
 
-    if (!process.env.REACT_APP_ENV) {
-      throw new Error('REACT_APP_ENV not set');
+    if (file === 'tile-action') {
+      return base64ToUtf8(b64TileAction);
+    } else if (file === 'orbis-sdk') {
+      return base64ToUtf8(b64OrbisSdk);
+    } else {
+      throw new Error('file not found');
     }
 
-    if (process.env.REACT_APP_ENV === 'dev') {
+    // if (!process.env.REACT_APP_ENV) {
+    //   throw new Error('REACT_APP_ENV not set');
+    // }
 
-      var res = await fetch('http://localhost:8181/api/' + file);
+    // if (process.env.REACT_APP_ENV === 'dev') {
 
-      var code = await res.text() ?? 'console.log("404");';
+    //   var res = await fetch('http://localhost:8181/api/' + file);
 
-      return code;
+    //   var code = await res.text() ?? 'console.log("404");';
 
-    }
+    //   return code;
+
+    // }
   }
 
   async function runLitAction(payload) {
@@ -338,6 +379,73 @@ function App() {
     console.warn("time:", time);
 
     return signatures;
+  }
+
+  async function runAction(payload) {
+
+    console.log(`Running "${payload.file}" in Lit Action`);
+
+    var start = new Date().getTime();
+
+    var code = payload.code ?? await getCode(payload.file);
+
+    console.warn("currentPKP.pubKey:", currentPKP.pubKey);
+
+    const authSig = await LitJsSdk.checkAndSignAuthMessage({ chain });
+
+    console.log("lit:", lit);
+
+    let res = await lit.executeJs({
+      // ipfsId: 'QmeUkT55U4m6CmvVq5aD62UzUP7dDkxTrJmKqcaSFCKDix',
+      code,
+      authSig,
+      jsParams: {
+        toSign: payload.toSign ?? [72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100],
+        publicKey: currentPKP.pubKey,
+        sigName: "sig1",
+        ...payload.params,
+      },
+    });
+
+    console.log("res:", res);
+    console.log(res.logs);
+
+    var end = new Date().getTime();
+    var time = end - start;
+
+    console.warn("time:", time);
+
+    return res;
+  }
+
+  async function onLitActionPrivateKey(seedBuffer, content) {
+
+    var res = {};
+
+    if (!seedBuffer || !content) {
+      res.status = 500;
+      res.error = 'seedBuffer or content is empty';
+      return;
+    }
+
+    try {
+      res = await runAction({
+        file: 'tile-action',
+        params: {
+          seed: seedBuffer,
+          content,
+          host: "https://node1.orbis.club/",
+        }
+      })
+      res.status = 200;
+      console.log(res);
+    } catch (e) {
+      console.log(e);
+      res.status = 500;
+      res.message = "Error: " + e.message;
+    }
+
+    return res;
   }
 
   async function mintPkp() {
@@ -506,6 +614,10 @@ function App() {
       orbis: `https://app.orbis.club/post/${docId}`,
       cerscan: `https://cerscan.com/mainnet/stream/${docId}`
     }
+  }
+
+  function getProfileLink(did) {
+    return `https://app.orbis.club/profile/${did.toLowerCase()}`;
   }
 
   async function onProofPost() {
@@ -901,17 +1013,6 @@ function App() {
   async function getPermitted() {
     let result = await contracts.pkpPermissionsContract.read.getPermittedAddresses(pkps[selectedCardIndex].tokenId);
   }
-  // use lit action to create post using a private key
-  async function onLitActionsPrivateKey() {
-    await runLitAction({
-      file: 'tile-action',
-      params: {
-        seed: [142, 214, 103, 107, 150, 147, 119, 49, 123, 190, 46, 144, 27, 146, 96, 200, 237, 210, 78, 75, 114, 148, 102, 7, 20, 153, 37, 174, 94, 2, 105, 43],
-        content: { foo: 'bar' },
-        host: "https://node1.orbis.club/",
-      }
-    })
-  }
 
   async function getPKPOrbis() {
     const orbis = new Orbis();
@@ -954,7 +1055,7 @@ function App() {
   }
 
   // use lit action to use orbis sdk
-  async function onLitActionsCreatePost() {
+  async function onLitActionsCreatePost(content) {
 
     const VERSION = 0;
 
@@ -962,18 +1063,24 @@ function App() {
 
       const { ceramicSession } = await getSession();
 
-      var content = "Merry Christmas everyone!";
+      // var content = "Merry Christmas everyone!";
 
-      const res = await runLitAction({
-        file: 'orbis-sdk',
-        params: {
-          method: 'create_post',
-          sessionKey: ceramicSession,
-          content: {
-            body: content,
+      var res;
+
+      try {
+        res = await runLitAction({
+          file: 'orbis-sdk',
+          params: {
+            method: 'create_post',
+            sessionKey: ceramicSession,
+            content: {
+              body: content,
+            }
           }
-        }
-      });
+        });
+      } catch (e) {
+        throw new Error("Unable to run lit action to create post");
+      }
 
       // const result = res.response;
 
@@ -1023,6 +1130,8 @@ function App() {
       }
 
       console.log("postId:", postId);
+
+      return postId;
     }
 
     if (VERSION === 1) {
@@ -1182,6 +1291,11 @@ function App() {
 
   }
 
+  function base64ToUtf8(b64) {
+    const str = Buffer.from(b64, 'base64').toString('utf8');
+    return str;
+  }
+
   async function getAuthSig() {
     const client = new LitJsSdk.LitNodeClient({ litNetwork: 'serrano' });
     await client.connect();
@@ -1318,32 +1432,55 @@ function App() {
                                 <Icon name="tap" />
                               </div>
 
+                              <div className="cc-more">
+                                <Icon name="more" onClick={() => setFlip(!flip)} />
+                              </div>
                               {
                                 !(selectedCardIndex === i && flip) ?
                                   // front card
-                                  <>
+                                  <div className="front-card">
                                     <div className="cc-logo">
                                       <Logo brand="lit" />
                                     </div>
+                                    <div className="cc-profile" onClick={() => goto(getProfileLink(pkp.did))}>
+                                      {/* <img src="/orbis-logo.png" alt="orbis logo" /> */}
+                                      <Blockies
+                                        seed={pkp.did}
+                                        color="#F57689"
+                                        bgColor="#063B5D"
+                                        spotColor="#7E18B9"
+                                      />
+                                    </div>
                                     <div className='cc-number' onClick={() => copyToClipboard(pkp.did)}>
                                       <div className={`copied ${clipboard === pkp.did ? 'active' : ''}`}>Copied</div>
-                                      {pkp.did}
+                                      {/* {short(pkp.address, 5, 5, '-')} */}
+                                      {pkp.address}
                                     </div>
-                                  </> :
+
+                                    {/* <div className="cc-data">
+                                      {
+                                        orbis && pkp.did ?
+                                          <OrbisProfile
+                                            orbis={orbis}
+                                            did={pkp.did}
+                                          /> : ''
+                                      }
+                                    </div> */}
+                                  </div> :
                                   // back card
                                   <div className="cc-back">
-                                    <div className="cc-token">
+                                    <div className="cc-token" onClick={() => copyToClipboard(pkp.tokenId)}>
                                       <div className="cc-token-name">Token ID</div>
-                                      <div className="cc-token-addr" onClick={() => copyToClipboard(pkp.tokenId)}>
+                                      <div className="cc-token-addr" >
                                         <div className={`copied ${clipboard === pkp.tokenId ? 'active' : ''}`}>Copied</div>
-                                        {pkp.tokenId}
+                                        {short(pkp.tokenId, 8, 8, '-')}
                                       </div>
                                     </div>
-                                    <div className="cc-token">
+                                    <div className="cc-token" onClick={() => copyToClipboard(pkp.pubKey)}>
                                       <div className="cc-token-name">Public Key</div>
-                                      <div className="cc-token-addr" onClick={() => copyToClipboard(pkp.pubKey)}>
+                                      <div className="cc-token-addr" >
                                         <div className={`copied ${clipboard === pkp.pubKey ? 'active' : ''}`}>Copied</div>
-                                        {pkp.pubKey}
+                                        {short(pkp.pubKey, 8, 8, '-')}
                                       </div>
                                     </div>
                                   </div>
@@ -1365,20 +1502,7 @@ function App() {
                     </div>
                   </ScrollContainer>
 
-                  <div className={`card-options ${!currentPKP ? 'disabled' : ''}`}>
-                    <div className="card-option">
-                      <div onClick={() => setFlip(!flip)} className={`card-option-icon`}><Icon name="wallet" /></div>
-                      <span>Details</span>
-                    </div>
-                    <div className="card-option">
-                      <div onClick={() => setContentIndex(0)} className={`${contentIndex === 0 ? 'active' : ''} card-option-icon`}><Icon name="app" /></div>
-                      <span>Actions</span>
-                    </div>
-                    <div className="card-option">
-                      <div onClick={() => setContentIndex(1)} className={`${contentIndex === 1 ? 'active' : ''} card-option-icon`}><Icon name="key" /></div>
-                      <span>Auth</span>
-                    </div>
-                  </div>
+
 
                   <div className={`content contentIndex-${contentIndex}`}>
 
@@ -1402,15 +1526,11 @@ function App() {
                           <img src="https://orbis.club/img/orbis-logo.png" alt="orbis" />
                           <span>Orbis<br />Create Post</span>
                         </div>
-                        <div onClick={() => onLitActionsPrivateKey()} className={`seed action ${!currentPKP ? 'disabled' : ''}`}>
+                        <div onClick={() => setActivePage(PAGE_LIT_ACTION_SEED)} className={`seed action ${!currentPKP ? 'disabled' : ''}`}>
                           <Icon name="seed" />
                           <span>Lit Action<br />Seed</span>
                         </div>
-                        {/* <div onClick={() => onLitActionsTest()} className={`action ${!currentPKP ? 'disabled' : ''}`}>
-                          <Icon name="lit" />
-                          <span>Lit Action<br />(test)</span>
-                        </div> */}
-                        <div onClick={() => onLitActionsCreatePost()} className={`action ${!currentPKP ? 'disabled' : ''}`}>
+                        <div onClick={() => setActivePage(PAGE_LIT_ACTION_CREATE_POST)} className={`action ${!currentPKP ? 'disabled' : ''}`}>
                           <Icon name="lit" />
                           <span>Lit Action<br />Create Post</span>
                         </div>
@@ -1472,6 +1592,21 @@ function App() {
 
                   </div>
 
+                  <div className="separator"></div>
+                  <div className={`card-options ${!currentPKP ? 'disabled' : ''}`}>
+                    {/* <div className="card-option">
+                      <div onClick={() => setFlip(!flip)} className={`card-option-icon`}><Icon name="wallet" /></div>
+                      <span>Details</span>
+                    </div> */}
+                    <div className="card-option">
+                      <div onClick={() => setContentIndex(0)} className={`${contentIndex === 0 ? 'active' : ''} card-option-icon`}><Icon name="app" /></div>
+                      <span>Actions</span>
+                    </div>
+                    <div className="card-option">
+                      <div onClick={() => setContentIndex(1)} className={`${contentIndex === 1 ? 'active' : ''} card-option-icon`}><Icon name="key" /></div>
+                      <span>Auth</span>
+                    </div>
+                  </div>
 
                 </div>
               </div>
@@ -1690,70 +1825,190 @@ function App() {
             </div>
           </div>
 
-          {/* Orbis Create Post */}
           {
             !loggedIn ? '' :
-              <Dialog
-                signal={signal}
-                id={PAGE_ORBIS_CREATE_POST}
-                activePage={activePage}
-                pageTitle={`Create a Orbis Post using this PKP ${short(currentPKP.address)}`}
-                onCancel={() => setActivePage(0)}
-                onSubmit={async (
-                  data,
-                  setError,
-                  setSuccess,
-                  setLoading,
-                  setLoadingMessage,
-                  setPostContent,
-                ) => {
-                  setLoading(true);
-                  setLoadingMessage('Creating post...');
+              <>
+                {/* Orbis Create Post */}
+                <Dialog
+                  signal={signal}
+                  id={PAGE_ORBIS_CREATE_POST}
+                  activePage={activePage}
+                  pageTitle={`Create a Orbis Post using this PKP ${short(currentPKP.address)}`}
+                  onCancel={() => setActivePage(0)}
+                  onSubmit={async (
+                    data,
+                    setError,
+                    setSuccess,
+                    setLoading,
+                    setLoadingMessage,
+                    setPostContent,
+                  ) => {
+                    setLoading(true);
+                    setLoadingMessage('Creating post...');
 
-                  var res;
-                  try {
-                    res = await magicActionHandler({
-                      method: 'create_post',
-                      data: data.inputValue,
-                    });
-                  } catch (e) {
-                    setError(e.message);
+                    var res;
+                    try {
+                      res = await magicActionHandler({
+                        method: 'create_post',
+                        data: data.inputValue,
+                      });
+                    } catch (e) {
+                      setError(e.message);
+                      setLoading(false);
+                      setLoadingMessage('');
+                      return;
+                    }
+
+                    if (res.status !== 200) {
+                      setError("Failed to create post.");
+                      setLoading(false);
+                      setLoadingMessage('');
+                      return;
+                    }
+
                     setLoading(false);
                     setLoadingMessage('');
-                    return;
-                  }
 
-                  if (res.status !== 200) {
-                    setError("Failed to create post.");
+                    const links = getLinks(res.doc);
+                    // setSuccess("Post created successfully.");
+                    setPostContent(<>
+                      <div className="page-input-result example-format text-left">
+
+                        <h6><span>Orbis</span></h6>
+                        <a onClick={() => goto(links.orbis)}>{links.orbis}</a>
+                        <div className="separator-xxs"></div>
+                        <h6><span>Cerscan</span></h6>
+                        <a onClick={() => goto(links.cerscan)}>{links.cerscan}</a>
+                      </div>
+                    </>);
+
+
+                  }}
+                  submitText="Send (Enter)"
+                  input={{
+                    placeholder: 'type your message here...'
+                  }}
+                >
+                  <Guide />
+                </Dialog>
+
+                {/* Lit Actions Private Key Posting */}
+                <Dialog
+                  id={PAGE_LIT_ACTION_SEED}
+                  activePage={activePage}
+                  pageTitle={`Lit Actions Private Key Posting`}
+                  onCancel={() => setActivePage(0)}
+                  onSubmit={async (
+                    data,
+                    setError,
+                    setSuccess,
+                    setLoading,
+                    setLoadingMessage,
+                    setPostContent,
+                  ) => {
+                    setLoading(true);
+                    setLoadingMessage('Lit Action is being processed...');
+
+                    var res = await onLitActionPrivateKey(seed.seedBuffer, data.inputValue);
+
+                    if (res.status === 500) {
+                      setError(res.message);
+                      setLoading(false);
+                      setLoadingMessage('');
+                      return;
+                    }
+
+                    if (res.status === 200) {
+                      setSuccess("Lit Action is successfully processed.");
+                      setLoading(false);
+                      setLoadingMessage('');
+                    }
+
+                    var streamIdIndex = res.logs.split('\n').findIndex((item) => item.includes('stream.id => '));
+
+                    var streamId = ((res.logs.split('\n')[streamIdIndex]).split('stream.id => '))[1];
+                    console.log(streamId);
+
+                    var links = getLinks(streamId);
+
+                    setPostContent(<>
+                      <Links
+                        links={links}
+                        onClickOrbis={(link) => goto(link)}
+                        onClickCerscan={(link) => goto(link)}
+                      />
+                    </>);
+
+                  }}
+                  submitText="Send (Enter)"
+                  input={{
+                    placeholder: 'type your message here...'
+                  }}
+                >
+                  <p>
+                    This Lit Action enables you to post to the Orbis Protocol directly and anonymously, using a random seed phrase to maintain privacy.
+                  </p>
+
+                  <GenerateSeed onGenerate={setSeed} />
+                </Dialog>
+
+                {/* Lit Actions Create Post */}
+                <Dialog
+                  id={PAGE_LIT_ACTION_CREATE_POST}
+                  activePage={activePage}
+                  pageTitle={`Lit Actions Create Post`}
+                  onCancel={() => {
+                    setActivePage(0);
+                  }}
+                  onSubmit={async (
+                    data,
+                    setError,
+                    setSuccess,
+                    setLoading,
+                    setLoadingMessage,
+                    setPostContent,
+                  ) => {
+                    setLoading(true);
+                    setLoadingMessage('Lit Action is being processed...');
+                    var streamId = {};
+
+                    try {
+                      streamId = await onLitActionsCreatePost(data.inputValue);
+                    } catch (e) {
+                      setError(e.message);
+                      setLoading(false);
+                      setLoadingMessage('');
+                      return;
+                    }
+
+                    setSuccess("Lit Action is successfully processed.");
                     setLoading(false);
                     setLoadingMessage('');
-                    return;
-                  }
 
-                  setLoading(false);
-                  setLoadingMessage('');
+                    var links = getLinks(streamId);
 
-                  const links = getLinks(res.doc);
-                  // setSuccess("Post created successfully.");
-                  setPostContent(<>
-                    <div className="page-input-result example-format text-left">
-
-                      <h6><span>Orbis</span></h6>
-                      <a onClick={() => goto(links.orbis)}>{links.orbis}</a>
-                      <div className="separator-xxs"></div>
-                      <h6><span>Cerscan</span></h6>
-                      <a onClick={() => goto(links.cerscan)}>{links.cerscan}</a>
-                    </div>
-                  </>);
+                    setPostContent(<>
+                      <Links
+                        links={links}
+                        onClickOrbis={(link) => goto(link)}
+                        onClickCerscan={(link) => goto(link)}
+                      />
+                    </>);
 
 
-                }}
-                submitText="Send (Enter)"
-                input={{
-                  placeholder: 'type your message here...'
-                }}
-              >
-              </Dialog>
+                  }}
+                  submitText="Send (Enter)"
+                  input={{
+                    placeholder: 'type your message here...'
+                  }}
+                >
+                  <p>
+                    This Lit Action enables you to post to the Orbis Protocol directly using this PKP<br />
+                    <span className="text-primary">{currentPKP.address}</span>
+                  </p>
+
+                </Dialog>
+              </>
           }
 
 
@@ -1786,18 +2041,18 @@ function App() {
 
               if (monitorEnabled === false) {
 
-                // if (isPermitted === false) {
-                //   setLoadingMessage('Permitting bot...');
-                //   try {
-                //     await permitBot();
-                //   } catch (e) {
-                //     setLoading(false);
-                //     setError('Bot permit failed');
-                //     return;
-                //   }
-                // }
-                // setLoadingMessage('Bot permitted. Adding job...');
-                
+                if (isPermitted === false) {
+                  setLoadingMessage('Permitting bot...');
+                  try {
+                    await permitBot();
+                  } catch (e) {
+                    setLoading(false);
+                    setError('Bot permit failed');
+                    return;
+                  }
+                }
+                setLoadingMessage('Bot permitted. Adding job...');
+
                 var res = await onAddJob();
 
                 console.log("res:", res);
@@ -1814,17 +2069,17 @@ function App() {
               } else {
 
 
-                // if (isPermitted === true) {
-                //   setLoadingMessage('Revoking bot...');
-                //   var res = await revokeBot();
+                if (isPermitted === true) {
+                  setLoadingMessage('Revoking bot...');
+                  var res = await revokeBot();
 
-                //   if (res.status !== 200) {
-                //     setLoading(false);
-                //     setError('Bot revoke failed');
-                //     return;
-                //   }
-                // }
-                // setLoadingMessage('Bot revoked. Removing job...');
+                  if (res.status !== 200) {
+                    setLoading(false);
+                    setError('Bot revoke failed');
+                    return;
+                  }
+                }
+                setLoadingMessage('Bot revoked. Removing job...');
                 var res = await onRemoveJob();
                 console.log(res);
                 if (res.status === 200) {
@@ -1845,22 +2100,20 @@ function App() {
               By enabling this feature, you will allow our bot <span><a target="_blank" href={`https://mumbai.polygonscan.com/address/${BOT_ADDRESS}`}>{BOT_ADDRESS}</a></span> to access and analyze your PKP messages on Orbis Protocol and perform actions based on the commands it detects.
             </>}
           >
-            <div className="guide">
-              The following commands are available:
-              <ul>
-                <li>/send [address] [amount in wei]</li>
-                {/* <li>/help</li> */}
-                <li className="disabled">/recurring-payment [address] [amount] [interval] [start] [end]</li>
-                <li className="disabled">more coming soon...</li>
-              </ul>
-            </div>
+            <Guide />
           </Dialog>
 
         </div >
 
         {/* iframe */}
         < div id="second-device" className={`iframe ${iframeActive ? 'active' : ''}`}>
-          <div className="close" onClick={() => setIframeActive(false)}>
+          <div className="close" onClick={() => {
+            setIframeActive(false);
+            var timeout = setTimeout(() => {
+              setIframeLink('');
+              clearTimeout(timeout);
+            }, 500);
+          }}>
             <Icon name="close" />
           </div>
           <iframe className="device-apple" src={iframeLink}></iframe>
@@ -1881,7 +2134,7 @@ function App() {
         </div >
 
         {/* debug */}
-        < div className="debug hide" >
+        < div className="debug" >
           <h6>Debug</h6>
           ---
           <table>
@@ -2016,10 +2269,11 @@ function App() {
                 <a className='App-link' onClick={getPosts}>-{">"} Get Posts</a><br />
                 <a className='App-link' onClick={getConversations}>-{">"} Get Conversations</a><br />
                 <a className='App-link' onClick={getPermittedPKPs}>-{">"} Get Permitted Tokens</a>
-                <a className='App-link' onClick={getAuthSig}>-{">"} Get AuthSig</a>
+                <a className='App-link' onClick={getAuthSig}>-{">"} Get AuthSig</a><br />
               </>
           }
         </div >
+        {/* <a className='App-link' onClick={getTest}>-{">"} Get Test</a><br /> */}
       </header >
     </div >
   );

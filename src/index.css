@@ -306,10 +306,18 @@ span.inactive {
 }
 .cc-logo {
   position: absolute;
-  height: 1.5rem;
-  top: 1rem;
-  right: 1rem;
+  height: 0.8rem;
+  top: 0.8rem;
+  left: 12px;
   opacity: 0.7;
+}
+.cc-more {
+  width: 24px;
+  position: absolute;
+  top: 9px;
+  right: 3px;
+  fill: white;
+  cursor: pointer;
 }
 .cc-logo svg {
   height: 100%;
@@ -323,10 +331,36 @@ span.inactive {
   fill: #000000;
   opacity: 0;
 }
+.cc-profile {
+  display: flex;
+  justify-content: center;
+  position: absolute;
+  width: 100%;
+  top: 40px;
+}
+.cc-profile img {
+  transition: 0.2s all linear;
+  box-shadow: 0px 0px 7px transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+/* .cc-profile img:hover {
+  box-shadow: 0px 0px 7px #f360a5;
+  border: 1px solid #f360a5;
+} */
+
+.cc-profile .identicon,
+.cc-profile img {
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 16px;
+  padding: 8px;
+  cursor: pointer;
+}
 .active.credit-card {
-  /* border: 1px solid #282c34; */
-  /* box-shadow: 1px 0px 0px #ff9d61, -1px 0px 0px #ff9d61, 0 1px 0 #ff9d61,
-    0 -1px 0 #ff9d61; */
+  /* border: 2px solid #282c34; */
+  box-shadow: 1px 0px 2px #f152b2, -1px 0px 2px #f152b2, 0 1px 4px #f152b2,
+    0 -1px 4px #f152b2;
 }
 .active.credit-card > .cc-tap-to-select {
   display: none;
@@ -370,6 +404,8 @@ span.inactive {
   padding: 15px;
   box-sizing: border-box;
   cursor: pointer;
+  text-align: center;
+  top: 79px;
 }
 .cc-number .active.copied {
   right: 12px;
@@ -402,7 +438,7 @@ span.inactive {
   width: 90%;
   margin: auto;
   text-align: center;
-  margin-top: 12px;
+  margin-top: 43px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -412,6 +448,7 @@ span.inactive {
   box-sizing: border-box;
   border-radius: 4px;
   position: relative;
+  cursor: pointer;
 }
 .cc-back {
   position: relative;
@@ -531,12 +568,13 @@ span.inactive {
   gap: 18px;
   width: 100%;
   margin: auto;
-  margin-top: 15px;
+  /* margin-top: 15px; */
   background: #0000002b;
   border-radius: 20px;
   padding: 24px;
   box-sizing: border-box;
-  height: 240px;
+  /* height: 240px; */
+  padding-bottom: 36px;
   align-content: baseline;
 }
 /* app store icon */
@@ -875,6 +913,10 @@ table {
   border-radius: 5px;
   margin-top: 12px;
   margin-bottom: 12px;
+  user-select: none;
+}
+.example-format:hover {
+  user-select: unset;
 }
 /* .page-x {
   transform: translateY(100vh);
@@ -907,6 +949,10 @@ input[type="text"] {
   box-sizing: border-box;
   transition: 0.1s all ease-in;
   font-size: 10px;
+  user-select: none;
+}
+input[type="text"]:hover {
+  user-select: unset;
 }
 .button-group {
   display: flex;
@@ -967,7 +1013,7 @@ canvas.identicon {
 }
 .active.card-option-icon {
   border: 2px solid var(--color-primary);
-  box-shadow: 0px 0px 10px #f152b2;
+  box-shadow: 0px 0px 10px #000000;
 }
 .card-option span {
   font-size: 10px;
@@ -1035,6 +1081,7 @@ canvas.identicon {
   font-size: 12px;
   color: #ffffff;
   text-decoration: none;
+  cursor: pointer;
 }
 .page-input-result a:hover {
   text-decoration: underline;
@@ -1162,14 +1209,30 @@ canvas.identicon {
   border-bottom-left-radius: 12px;
   padding: 2px;
   box-shadow: -3px 3px 3px black;
-  cursor:pointer;
+  cursor: pointer;
 }
-.close:hover{
-  background: var(--color-primary)
+.close:hover {
+  background: var(--color-primary);
 }
 svg {
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
   outline: none;
+}
+
+.generate {
+  display: grid;
+  align-items: center;
+  grid-template-columns: 24px 100%;
+  gap: 6px;
+  box-sizing: border-box;
+  max-width: 70vh;
+  width: calc(100% - 31px);
+}
+.generate svg {
+  width: 24px;
+  height: 24px;
+  fill: white;
+  cursor: pointer;
 }

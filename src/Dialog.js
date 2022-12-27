@@ -54,6 +54,17 @@ function Dialog({
     var timeout;
     function handleKeyDown(e) {
         if (e.key === 'Enter') {
+
+            if(inputValue.length < 1){
+                setError("input cannot be empty");
+
+                timeout = setTimeout(() => {
+                    setError(null);
+                    clearTimeout(timeout);
+                }, 1000);
+                return;
+            };
+
             submit();
             setEnterPressed(true);
 
@@ -97,20 +108,21 @@ function Dialog({
                         <div className="separator-sm"></div>
 
                         <div className="input-group">
-                            {
-                                !input ? '' :
-                                    <input onKeyDown={handleKeyDown} type="text" placeholder={input?.placeholder ?? '0x...'} value={inputValue} onChange={(e) => setInputValue(e.target.value)} />
-                            }
 
                             {
                                 !alertMessage ? '' :
-                                    <p className="alert-box">
+                                <p className="alert-box">
                                         <Icon name="alert"></Icon>
                                         {alertMessage}
                                     </p>
                             }
 
                             {children}
+
+                            {
+                                !input ? '' :
+                                    <input onKeyDown={handleKeyDown} type="text" placeholder={input?.placeholder ?? '0x...'} value={inputValue} onChange={(e) => setInputValue(e.target.value)} />
+                            }
 
                             <div className="button-group">
                                 {
