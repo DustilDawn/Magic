@@ -896,6 +896,11 @@ function App() {
   }
 
   function short(str, start = 6, end = 4, middle = '***') {
+
+    if (!str) {
+      return 'not ready';
+    }
+
     return str.substring(0, start) + middle + str.substring(str.length - end, str.length);
   }
 
@@ -1427,10 +1432,13 @@ function App() {
                   </div>
 
                   <ScrollContainer className="scroll-container">
+                    {(!switching) && viewType === 1 && authorizedPkps.length <= 0 ? <div className="card-height"></div> : ''}
                     <div className={`cards ${switching ? 'switching' : ''}`}>
                       {
                         (viewType === 0 && !pkps) || (viewType === 1 && !authorizedPkps) || (switching) ?
-                          <Loading /> :
+                          <div className="card-height card-height2">
+                            <Loading />
+                          </div> :
                           (viewType === 0 ? pkps : authorizedPkps).map((pkp, i) => {
 
                             return <div className={`credit-card ${(selectedCardIndex === i && flip) ? 'flip' : ''} gradient-${i} ${selectedCardIndex === i ? 'active' : ''}`} key={i}>
@@ -1602,7 +1610,7 @@ function App() {
 
                   </div>
 
-                  <div className="separator"></div>
+                  <div className="separator-sm"></div>
                   <div className={`card-options ${!currentPKP ? 'disabled' : ''}`}>
                     {/* <div className="card-option">
                       <div onClick={() => setFlip(!flip)} className={`card-option-icon`}><Icon name="wallet" /></div>
@@ -1836,14 +1844,14 @@ function App() {
           </div>
 
           {
-            (!loggedIn && !currentPKP.address) ? '' :
+            (!loggedIn && !currentPKP) ? '' :
               <>
                 {/* Orbis Create Post */}
                 <Dialog
                   signal={signal}
                   id={PAGE_ORBIS_CREATE_POST}
                   activePage={activePage}
-                  pageTitle={`Create a Orbis Post using this PKP ${short(currentPKP.address)}`}
+                  pageTitle={`Create a Orbis Post using this PKP ${short(currentPKP?.address)}`}
                   onCancel={() => setActivePage(0)}
                   onSubmit={async (
                     data,
@@ -2014,7 +2022,7 @@ function App() {
                 >
                   <p>
                     This Lit Action enables you to post to the Orbis Protocol directly using this PKP<br />
-                    <span className="text-primary">{currentPKP.address}</span>
+                    <span className="text-primary">{currentPKP?.address}</span>
                   </p>
 
                 </Dialog>
