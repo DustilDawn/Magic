@@ -157,7 +157,7 @@ function App() {
       // }
 
 
-      check();
+      // check();
     }
 
 
@@ -228,7 +228,9 @@ function App() {
   }, [address, user, pkps, lit, orbis, contracts, selectedCardIndex, viewType, jobs])
 
   // if (!monitorCheck) {
-  async function check() {
+  async function check(index) {
+
+    var current = (viewType === 0 ? pkps : authorizedPkps)[index];
 
     var res;
 
@@ -240,12 +242,13 @@ function App() {
         },
         body: JSON.stringify({
           params: {
-            pkp: currentPKP,
+            pkp: current,
           }
         })
       });
 
       var status = (await res.json()).status;
+      console.log(`${current.address} status => ${status}`);
 
       if (status === 'job exists') {
         setMonitorEnabled(true);
@@ -1385,7 +1388,7 @@ function App() {
                 <div className={`login ${loading ? 'active' : ''}`}>
                   <h1><span>The magic</span></h1>
                   <p>
-                    Connect your wallet to start using the magic.
+                    One Account, multiple seed-less wallets.
                   </p>
                   <div className="button" onClick={connect}>Connect</div>
                 </div>
@@ -1412,17 +1415,17 @@ function App() {
 
                 <div className="page-inner">
 
-                  <div className="page-header">
+                  <div className={`page-header ${viewType === 1 ? 'page-header-2' : ''}`}>
                     <div className="spread view-type">
-                      <h6 className={`view-type-h6 ${viewType === 0 ? 'active' : ''}`} onClick={() => setViewType(0)}><span>Your Accounts</span></h6>
-                      <h6 className={`view-type-h6 ${viewType === 1 ? 'active' : ''}`} onClick={async () => {
+                      <h5 className={`view-type-h6 ${viewType === 0 ? 'active' : ''}`} onClick={() => setViewType(0)}><span>Your Accounts</span></h5>
+                      <h5 className={`view-type-h6 ${viewType === 1 ? 'active' : ''}`} onClick={async () => {
                         setSwitching(true);
                         setCurrentPKP(null);
                         var tokens = await getPermittedPKPs();
                         setAuthorizedPkps(tokens);
                         setSwitching(false);
                         setViewType(1);
-                      }}><span>Authorized Accounts</span></h6>
+                      }}><span>Authorized Accounts</span></h5>
                     </div>
                     {
                       viewType === 0 ?
@@ -1445,6 +1448,7 @@ function App() {
 
                               <div className="cc-tap-to-select" onClick={async () => {
                                 setSelectedCardIndex(i);
+                                check(i);
                                 setFlip(false);
                                 scrollToCard(i, { ms: 300 });
                               }}>
@@ -1555,7 +1559,7 @@ function App() {
 
                         <div onClick={() => onLitActionsGetPosts()} className={`action ${!currentPKP ? 'disabled' : ''}`}>
                           <Icon name="lit" />
-                          <span>Lit Action<br />(Get Posts)</span>
+                          <span>Lit Action<br />Get Posts</span>
                         </div>
 
                         <div onClick={() => setActivePage(PAGE_MESSAGE_MONITOR)} className={`action ${!currentPKP ? 'disabled' : ''}`}>

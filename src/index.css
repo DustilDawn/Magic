@@ -853,6 +853,7 @@ table {
   justify-content: center;
   align-items: center;
   flex-direction: column;
+  padding: 0.5vh;
 }
 .icon-plus {
   background: #000000;
@@ -1180,6 +1181,7 @@ canvas.identicon {
 .active.iframe {
   transform: translateX(225px);
   z-index: 1;
+  min-width: 403px;
 }
 .second-device {
   position: relative;
@@ -1203,15 +1205,15 @@ canvas.identicon {
 }
 
 .close {
-  width: 24px;
-  height: 24px;
+  width: 3vh;
+  height: 3vh;
   position: absolute;
   top: 0;
   right: 0;
   background: #f152b2;
   z-index: 3;
   border-bottom-left-radius: 12px;
-  padding: 2px;
+  padding: 0.3vh;
   box-shadow: -3px 3px 3px black;
   cursor: pointer;
 }
@@ -1255,4 +1257,9 @@ svg {
 }
 .none {
   display: none !important;
+}
+
+.page-header-2 {
+  margin-bottom: 1.5vh;
+  margin-top: 0.15vh;
 }
