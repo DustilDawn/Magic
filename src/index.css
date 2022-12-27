@@ -60,14 +60,18 @@ a {
 .device-apple {
   padding: 1rem;
   background-color: #282c34;
-  position: relative;
-  width: 368.9px;
-  height: 800px;
+  height: calc(100vh - 11vh);
   border: 1px solid #f152b2;
   border-radius: 20px;
   box-shadow: 0 0 0 10px rgb(0 0 0 / 30%);
   overflow: hidden;
   position: relative;
+  transition: 0.3s ease-in-out all;
+  transform: translateX(0);
+  z-index: 2;
+  max-width: 368.9px;
+  width: 100%;
+  max-height: 800px;
 }
 .device-apple .date {
   text-align: left;
@@ -239,6 +243,7 @@ a {
 }
 .loading-with-text span {
   font-size: 12px;
+
 }
 h1 span,
 h2 span,
@@ -306,16 +311,16 @@ span.inactive {
 }
 .cc-logo {
   position: absolute;
-  height: 0.8rem;
+  height: 1.5rem;
   top: 0.8rem;
-  left: 12px;
+  left: 0.8rem;
   opacity: 0.7;
 }
 .cc-more {
-  width: 24px;
+  width: 2rem;
   position: absolute;
-  top: 9px;
-  right: 3px;
+  top: 0.6rem;
+  right: 0.1rem;
   fill: white;
   cursor: pointer;
 }
@@ -394,18 +399,16 @@ span.inactive {
 }
 .cc-number {
   font-size: 13px;
-  text-align: right;
   word-wrap: break-word;
   right: 1rem;
   width: 100%;
   position: absolute;
-  bottom: 0;
   left: 0;
   padding: 15px;
   box-sizing: border-box;
   cursor: pointer;
-  text-align: center;
-  top: 79px;
+  text-align: left;
+  bottom: 0;
 }
 .cc-number .active.copied {
   right: 12px;
@@ -1171,11 +1174,6 @@ canvas.identicon {
 .active.iframe {
   transform: translateX(225px);
   z-index: 1;
-}
-.device-apple {
-  transition: 0.3s ease-in-out all;
-  transform: translateX(0);
-  z-index: 2;
 }
 .second-device {
   position: relative;

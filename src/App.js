@@ -36,6 +36,7 @@ import { GenerateSeed } from "./GenerateSeed";
 import { Links } from "./components/Links";
 import { Guide } from "./components/Guide";
 import { OrbisProfile } from "./components/OrbisProfile";
+import { LoadingWithText } from "./components/LoadingWithText";
 
 const smartContracts = {
   pkp: '0x86062B7a01B8b2e22619dBE0C15cbe3F7EBd0E92',
@@ -102,6 +103,8 @@ function App() {
   const [socket, setSocket] = useState();
 
   const [seed, setSeed] = useState();
+
+  const [loginMessage, setLoginMessage] = useState();
 
   useEffect(() => {
 
@@ -271,6 +274,9 @@ function App() {
 
     var web3;
 
+    setLoading(true);
+    setLoginMessage('Switching to Mumbai');
+
     if (!window.ethereum) {
       alert('Please install MetaMask');
       return;
@@ -295,13 +301,17 @@ function App() {
       });
     }
 
-    setLoading(true);
+    setLoginMessage('Connecting Lit Serrano Testnet...');
     let lit = await connectLit();
+
+    setLoginMessage('Connecting Orbis...');
     let orbis = await connectOrbis();
 
     if (lit && orbis) {
+      setLoginMessage('Done!');
       setLoading(false);
     }
+    setLoginMessage(null);
   }
 
   async function connectMagic() {
@@ -491,6 +501,7 @@ function App() {
     setLit(client);
     setAddress(authSig.address);
 
+    setLoginMessage('Fetching PKPs...');
     await getPKPs(authSig.address);
 
     return client;
@@ -1373,9 +1384,9 @@ function App() {
                   </p>
                   <div className="button" onClick={connect}>Connect</div>
                 </div>
-                <div className={`login-loading ${loading ? 'active' : ''}`}>
+                <div className={`login-loading loading-with-text ${loading ? 'active' : ''}`}>
                   {/* <div className="separator"></div> */}
-                  <Loading />
+                  <LoadingWithText msg={loginMessage} />
                 </div>
               </div>
             </> :
@@ -1442,19 +1453,18 @@ function App() {
                                     <div className="cc-logo">
                                       <Logo brand="lit" />
                                     </div>
-                                    <div className="cc-profile" onClick={() => goto(getProfileLink(pkp.did))}>
-                                      {/* <img src="/orbis-logo.png" alt="orbis logo" /> */}
+                                    {/* <div className="cc-profile" onClick={() => goto(getProfileLink(pkp.did))}>
                                       <Blockies
                                         seed={pkp.did}
                                         color="#F57689"
                                         bgColor="#063B5D"
                                         spotColor="#7E18B9"
                                       />
-                                    </div>
+                                    </div> */}
                                     <div className='cc-number' onClick={() => copyToClipboard(pkp.did)}>
                                       <div className={`copied ${clipboard === pkp.did ? 'active' : ''}`}>Copied</div>
-                                      {/* {short(pkp.address, 5, 5, '-')} */}
-                                      {pkp.address}
+                                      {short(pkp.address, 5, 5, '-')}
+                                      {/* {pkp.address} */}
                                     </div>
 
                                     {/* <div className="cc-data">
@@ -1826,7 +1836,7 @@ function App() {
           </div>
 
           {
-            !loggedIn ? '' :
+            (!loggedIn && !currentPKP.address) ? '' :
               <>
                 {/* Orbis Create Post */}
                 <Dialog
@@ -2121,7 +2131,7 @@ function App() {
 
 
         {/* jobs */}
-        < div className="jobs" >
+        < div className="jobs hide" >
           {!jobs ? <></> : jobs.map((job, index) => {
             return <div key={index} className="job">
               <div className="job-inner">
@@ -2134,7 +2144,7 @@ function App() {
         </div >
 
         {/* debug */}
-        < div className="debug" >
+        < div className="debug hide" >
           <h6>Debug</h6>
           ---
           <table>
