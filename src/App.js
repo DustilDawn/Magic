@@ -106,6 +106,8 @@ function App() {
 
   const [loginMessage, setLoginMessage] = useState();
 
+  const [checkOnce, setCheckOnce] = useState(false);
+
   useEffect(() => {
 
     if (address && user && pkps && lit && orbis && !authorizing && !unauthorizing && !success && !error && contracts && currentPKP !== null) {
@@ -139,6 +141,15 @@ function App() {
 
     }
 
+    // if (socket) {
+    //   console.log("socket =>", socket);
+    // }
+    if (!checkOnce && (pkps || authorizedPkps) && (viewType === 0 || viewType === 1)) {
+      console.log("CHECK ONCE!");
+      check(0);
+      setCheckOnce(true);
+    }
+
     if (loggedIn) {
 
       if (!socket) {
@@ -152,12 +163,9 @@ function App() {
         setSocket(socket);
       }
 
-      // if (socket) {
-      //   console.log("socket =>", socket);
-      // }
 
 
-      // check();
+
     }
 
 
