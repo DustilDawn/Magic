@@ -10,6 +10,7 @@
     "@testing-library/jest-dom": "^5.16.5",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
+    "alchemy-sdk": "^2.2.5",
     "ethers": "^5.7.2",
     "key-did-provider-secp256k1-with-lit": "^0.1.2",
     "lit-js-sdk": "^1.2.57",

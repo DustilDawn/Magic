@@ -37,6 +37,7 @@ import { Links } from "./components/Links";
 import { Guide } from "./components/Guide";
 import { OrbisProfile } from "./components/OrbisProfile";
 import { LoadingWithText } from "./components/LoadingWithText";
+import { ProfileBalance } from "./components/ProfileBalance";
 
 const smartContracts = {
   pkp: '0x86062B7a01B8b2e22619dBE0C15cbe3F7EBd0E92',
@@ -1481,6 +1482,9 @@ function App() {
                                         spotColor="#7E18B9"
                                       />
                                     </div> */}
+                                    <div className="cc-balance">
+                                      <ProfileBalance address={pkp.address} />
+                                    </div>
                                     <div className='cc-number' onClick={() => copyToClipboard(pkp.did)}>
                                       <div className={`copied ${clipboard === pkp.did ? 'active' : ''}`}>Copied</div>
                                       {short(pkp.address, 5, 5, '-')}

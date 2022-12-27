@@ -1263,3 +1263,12 @@ svg {
   margin-bottom: 1.5vh;
   margin-top: 0.15vh;
 }
+
+.cc-balance {
+  font-size: 1.3vh;
+  bottom: 3vh;
+  left: 1.4vh;
+  position: absolute;
+  font-weight: bold;
+  color: #f35da9;
+}
