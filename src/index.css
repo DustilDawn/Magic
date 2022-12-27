@@ -320,7 +320,7 @@ span.inactive {
   opacity: 0.7;
 }
 .cc-more {
-  width: 2rem;
+  width: 3.5vh;
   position: absolute;
   top: 1vh;
   right: 0.2vh;
@@ -443,7 +443,7 @@ span.inactive {
   width: 90%;
   margin: auto;
   text-align: center;
-  margin-top: 43px;
+  margin-top: 4.9vh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -530,6 +530,8 @@ span.inactive {
   border: 1px solid #fe9e61;
 }
 .credit-card-add svg {
+  width: 5.5vh;
+  height: 5.5vh;
   fill: #f64744;
 }
 
@@ -632,7 +634,7 @@ span.inactive {
 .action > span {
   position: absolute;
   bottom: -3.3vh;
-  height: 24px;
+  height: 2.7vh;
   text-align: center;
 }
 .action img,
@@ -1248,8 +1250,8 @@ svg {
   margin: auto;
   align-items: center;
 }
-.card-height2{
-  height: 22.95vh;
+.card-height2 {
+  height: 22.95vh !important;
 }
 .none {
   display: none !important;
