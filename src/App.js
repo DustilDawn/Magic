@@ -203,8 +203,8 @@ function App() {
           setIframeActive(false);
           var timeout = setTimeout(() => {
             setIframeLink("");
-            const iframe = document.queryselector("iframe");
-            iframe.contentWindow.sessionStorage.clear();
+            const iframe = document.getElementById("second-device");
+            iframe.contentWindow.localStorage.clear();
             clearTimeout(timeout);
           }, 500);
           return;
@@ -2497,6 +2497,7 @@ function App() {
                   placeholder:
                     "wc:09a44d1c-1e02-42b9-8969-9afdb13701b1@1?bridge=https%3A%2F%2Fl.bridge.walletconnect.org&key=f940a9d66b5bf899367a09419b0fc026eea51927b66cde752ee8c0dbb13dc0b7",
                 }}
+                alertMessage="Experimental! Sometimes it doesn't work. Try again."
                 onSubmit={async (
                   data,
                   setError,
@@ -2758,15 +2759,20 @@ function App() {
               setIframeActive(false);
               var timeout = setTimeout(() => {
                 setIframeLink("");
-                const iframe = document.queryselector("iframe");
-                iframe.contentWindow.sessionStorage.clear();
+                const iframe = document.getElementById("");
+                iframe.contentWindow.localStorage.clear();
+
                 clearTimeout(timeout);
               }, 500);
             }}
           >
             <Icon name="close" />
           </div>
-          <iframe className="device-apple" src={iframeLink}></iframe>
+          <iframe
+            id="second-device"
+            className="device-apple"
+            src={iframeLink}
+          ></iframe>
         </div>
 
         {/* jobs */}
