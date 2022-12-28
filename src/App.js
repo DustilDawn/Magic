@@ -120,6 +120,8 @@ function App() {
 
   const [chainId, setChainId] = useState("0x13881");
 
+  const [iframeAddressBar, setIframeAddressBar] = useState();
+
   useEffect(() => {
     if (
       address &&
@@ -201,10 +203,9 @@ function App() {
 
         if (iframeActive || secondDevice.classList.contains("active")) {
           setIframeActive(false);
+
           var timeout = setTimeout(() => {
             setIframeLink("");
-            const iframe = document.getElementById("second-device");
-            iframe.contentWindow.localStorage.clear();
             clearTimeout(timeout);
           }, 500);
           return;
@@ -243,9 +244,33 @@ function App() {
     // loading state
     document.addEventListener("keydown", keyDownHandler);
 
+    function keyDownHandlerIframe(e) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        console.log(iframeAddressBar);
+        goto(iframeAddressBar);
+      }
+    }
+
+    try {
+      document
+        .getElementById("iframe-address-bar")
+        .addEventListener("keydown", keyDownHandlerIframe);
+    } catch (e) {
+      //
+    }
+
     return () => {
       // socket.close();
       document.removeEventListener("keydown", keyDownHandler);
+
+      try {
+        document
+          .getElementById("iframe-address-bar")
+          .removeEventListener("keydown", keyDownHandlerIframe);
+      } catch (e) {
+        //
+      }
     };
   }, [
     address,
@@ -257,6 +282,7 @@ function App() {
     selectedCardIndex,
     viewType,
     jobs,
+    iframeAddressBar,
   ]);
 
   // if (!monitorCheck) {
@@ -1469,9 +1495,16 @@ function App() {
 
   async function goto(link) {
     setIframeLink(link);
+    setIframeAddressBar(link);
     // wait for 2 seconds
     // await new Promise(r => setTimeout(r, 2000));
     setIframeActive(true);
+
+    try{
+      localStorage.removeItem("walletconnect");
+    }catch(e){
+      console.log("error removing walletconnect");
+    }
   }
 
   return (
@@ -1821,13 +1854,16 @@ function App() {
 
                       <div
                         onClick={() => {
-                          goto("https://app.orbis.club/");
+                          goto("https://app.uniswap.org/");
                           setActivePage(PAGE_WALLET_CONNECT);
                         }}
                         className={`action ${!currentPKP ? "disabled" : ""}`}
                       >
                         <Icon name={`wallet-connect`} />
-                        <span>Connect PKP to Orbis</span>
+                        <span>
+                          Connect <br />
+                          dApp
+                        </span>
                       </div>
                     </section>
                   </div>
@@ -2497,7 +2533,6 @@ function App() {
                   placeholder:
                     "wc:09a44d1c-1e02-42b9-8969-9afdb13701b1@1?bridge=https%3A%2F%2Fl.bridge.walletconnect.org&key=f940a9d66b5bf899367a09419b0fc026eea51927b66cde752ee8c0dbb13dc0b7",
                 }}
-                alertMessage="It might not work - It appears that the pkh-ethereum package that Orbis-SDK is utilizing is causing some issues."
                 onSubmit={async (
                   data,
                   setError,
@@ -2512,12 +2547,10 @@ function App() {
 
                   // Create connector
                   const connector = new WalletConnect({
-                    // Replace this value with the dApp's URI you copied
                     uri: data.inputValue,
-                    // Replace the following details with your own app's info
                     clientMeta: {
-                      description: "WalletConnect Developer App",
-                      url: "https://walletconnect.org",
+                      description: "Magic Wallet",
+                      url: "https://magicwallet.me",
                       icons: [
                         "https://walletconnect.org/walletconnect-logo.png",
                       ],
@@ -2525,16 +2558,19 @@ function App() {
                     },
                   });
 
+                  // if (!connector.connected) {
+                  //   await connector.createSession();
+                  // }
+
                   // Subscribe to session requests
                   connector.on("session_request", (error, payload) => {
-                    console.log("SESSION REQUESST");
                     if (error) {
                       throw error;
                     }
 
                     connector.approveSession({
                       accounts: [address],
-                      chainId: convertHexToNumber(chainId),
+                      chainId: 80001,
                     });
 
                     connector.rejectSession({
@@ -2544,7 +2580,6 @@ function App() {
 
                   // Subscribe to call requests
                   connector.on("call_request", async (error, payload) => {
-                    console.log("CALL REQUEST");
                     console.log(payload);
                     if (error) {
                       throw error;
@@ -2554,38 +2589,9 @@ function App() {
 
                     console.log(publicKey);
 
-                    var authSig;
-                    try {
-                      authSig = localStorage.getItem(
-                        `lit-auth-signature-${window.ethereum.selectedAddress}`
-                      );
-                    } catch (e) {
-                      authSig = await LitJsSdk.checkAndSignAuthMessage({
-                        chain,
-                      });
-                    }
-
-                    try {
-                      authSig = JSON.parse(authSig);
-                    } catch (e) {
-                      console.log(e);
-                    }
-
-                    // console.log(authSig);
-
-                    // return;
-
-                    // const rpcUrl = rpc;
-
-                    // const wallet = new LitPKP({
-                    //   pkpPubKey: publicKey,
-                    //   controllerAuthSig: authSig,
-                    //   provider: rpcUrl,
-                    // });
-
-                    // await wallet.init();
-
-                    // const result = await wallet.signEthereumRequest(payload);
+                    var authSig = await LitJsSdk.checkAndSignAuthMessage({
+                      chain,
+                    });
 
                     const magicWallet = new Magic({
                       pkpPubKey: publicKey,
@@ -2595,11 +2601,7 @@ function App() {
 
                     await magicWallet.connect();
 
-                    const result = await magicWallet.handler(payload, {
-                      index: 1,
-                    });
-
-                    console.log("result:", result);
+                    const result = await magicWallet.ethRequest(payload);
 
                     connector.approveRequest({
                       id: payload.id,
@@ -2755,14 +2757,24 @@ function App() {
           id="second-device"
           className={`iframe ${iframeActive ? "active" : ""}`}
         >
+          <input
+            id="iframe-address-bar"
+            type="text"
+            className="iframe-address-bar"
+            placeholder=" Search of enter website name"
+            value={iframeAddressBar}
+            onChange={(e) => {
+              var value = e.target.value;
+              // console.log(value);
+              setIframeAddressBar(value);
+            }}
+          />
           <div
             className="close"
             onClick={() => {
               setIframeActive(false);
               var timeout = setTimeout(() => {
                 setIframeLink("");
-                const iframe = document.getElementById("");
-                iframe.contentWindow.localStorage.clear();
 
                 clearTimeout(timeout);
               }, 500);
@@ -2771,7 +2783,7 @@ function App() {
             <Icon name="close" />
           </div>
           <iframe
-            id="second-device"
+            id="iframe-device"
             className="device-apple"
             src={iframeLink}
           ></iframe>
