@@ -49,8 +49,8 @@ const smartContracts = {
 const BOT_ADDRESS = '0x019c5821577B1385d6d668d5f3F0DF16A9FA1269';
 // const BOT_API = 'http://localhost:8081';
 // const BOT_WS_API = 'ws://localhost:8080';
-const BOT_API = 'http://api.magicwallet.me:8081';
-const BOT_WS_API = 'wss://api.magicwallet.me:8080';
+const BOT_API = 'https://api.magicwallet.me';
+const BOT_WS_API = 'wss://api.magicwallet.me/ws';
 const PAGE_MESSAGE_MONITOR = 'dialog-monitor-message';
 const PAGE_ORBIS_PROOF_POST = 'btn-action-proof-post';
 const PAGE_ORBIS_CREATE_POST = 'page-orbis-create-post';
@@ -2269,7 +2269,7 @@ function App() {
         </div >
 
         {/* controllers */}
-        < div className='controllers hide' >
+        < div className='controllers' >
 
           {/* merged operations */}
           < a className='App-link' onClick={connect} > Connect</a ><br />
@@ -2304,8 +2304,9 @@ function App() {
                 <a className='App-link' onClick={editPost}>-{">"} Edit Post</a><br />
                 <a className='App-link' onClick={getPosts}>-{">"} Get Posts</a><br />
                 <a className='App-link' onClick={getConversations}>-{">"} Get Conversations</a><br />
-                <a className='App-link' onClick={getPermittedPKPs}>-{">"} Get Permitted Tokens</a>
+                <a className='App-link' onClick={getPermittedPKPs}>-{">"} Get Permitted Tokens</a><br/>
                 <a className='App-link' onClick={getAuthSig}>-{">"} Get AuthSig</a><br />
+                <a className='App-link' onClick={() => check(0)}>-{">"} Fetch Check</a><br />
               </>
           }
         </div >
