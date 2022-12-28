@@ -15,7 +15,6 @@
     "ethers": "^5.7.2",
     "key-did-provider-secp256k1-with-lit": "^0.1.2",
     "lit-js-sdk": "^1.2.57",
-    "lit-pkp-sdk": "^1.0.2",
     "multiformats": "^10.0.3",
     "orbis-sdk": "^0.4.4-beta.46",
     "pkh-pkp": "^0.0.5",
@@ -30,7 +29,7 @@
   },
   "scripts": {
     "start": "DISABLE_ESLINT_PLUGIN=true BROWSER=none react-scripts start",
-    "build": "DISABLE_ESLINT_PLUGIN=true BROWSER=none react-scripts build",
+    "build": "GENERATE_SOURCEMAP=false DISABLE_ESLINT_PLUGIN=true BROWSER=none react-scripts build",
     "test": "DISABLE_ESLINT_PLUGIN=true BROWSER=none react-scripts test",
     "eject": "DISABLE_ESLINT_PLUGIN=true BROWSER=none react-scripts eject",
     "reader": "node ./server/reader.js"

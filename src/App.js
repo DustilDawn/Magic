@@ -41,7 +41,7 @@ import { ProfileBalance } from "./components/ProfileBalance";
 
 import WalletConnect from "@walletconnect/client";
 import { convertHexToNumber } from "@walletconnect/utils";
-import { LitPKP } from "lit-pkp-sdk";
+// import { LitPKP } from "lit-pkp-sdk";
 
 const smartContracts = {
   pkp: "0x86062B7a01B8b2e22619dBE0C15cbe3F7EBd0E92",
@@ -203,6 +203,8 @@ function App() {
           setIframeActive(false);
           var timeout = setTimeout(() => {
             setIframeLink("");
+            const iframe = document.queryselector("iframe");
+            iframe.contentWindow.sessionStorage.clear();
             clearTimeout(timeout);
           }, 500);
           return;
@@ -1819,7 +1821,7 @@ function App() {
 
                       <div
                         onClick={() => {
-                          goto("https://orbis.club");
+                          goto("https://app.orbis.club/");
                           setActivePage(PAGE_WALLET_CONNECT);
                         }}
                         className={`action ${!currentPKP ? "disabled" : ""}`}
@@ -2572,29 +2574,29 @@ function App() {
 
                     // return;
 
-                    const rpcUrl = rpc;
+                    // const rpcUrl = rpc;
 
-                    const wallet = new LitPKP({
-                      pkpPubKey: publicKey,
-                      controllerAuthSig: authSig,
-                      provider: rpcUrl,
-                    });
-
-                    await wallet.init();
-
-                    const result = await wallet.signEthereumRequest(payload);
-
-                    // const magicWallet = new Magic({
+                    // const wallet = new LitPKP({
                     //   pkpPubKey: publicKey,
                     //   controllerAuthSig: authSig,
-                    //   provider: rpc,
+                    //   provider: rpcUrl,
                     // });
 
-                    // await magicWallet.connect();
+                    // await wallet.init();
 
-                    // const result = await magicWallet.handler(payload, {
-                    //   dApp: true,
-                    // });
+                    // const result = await wallet.signEthereumRequest(payload);
+
+                    const magicWallet = new Magic({
+                      pkpPubKey: publicKey,
+                      controllerAuthSig: authSig,
+                      provider: rpc,
+                    });
+
+                    await magicWallet.connect();
+
+                    const result = await magicWallet.handler(payload, {
+                      dApp: true,
+                    });
 
                     connector.approveRequest({
                       id: payload.id,
@@ -2756,6 +2758,8 @@ function App() {
               setIframeActive(false);
               var timeout = setTimeout(() => {
                 setIframeLink("");
+                const iframe = document.queryselector("iframe");
+                iframe.contentWindow.sessionStorage.clear();
                 clearTimeout(timeout);
               }, 500);
             }}
