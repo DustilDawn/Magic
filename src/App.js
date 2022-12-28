@@ -2497,7 +2497,7 @@ function App() {
                   placeholder:
                     "wc:09a44d1c-1e02-42b9-8969-9afdb13701b1@1?bridge=https%3A%2F%2Fl.bridge.walletconnect.org&key=f940a9d66b5bf899367a09419b0fc026eea51927b66cde752ee8c0dbb13dc0b7",
                 }}
-                alertMessage="Experimental! Sometimes it doesn't work. Try again."
+                alertMessage="It might not work - It appears that the pkh-ethereum package that Orbis-SDK is utilizing is causing some issues."
                 onSubmit={async (
                   data,
                   setError,
@@ -2596,8 +2596,10 @@ function App() {
                     await magicWallet.connect();
 
                     const result = await magicWallet.handler(payload, {
-                      dApp: true,
+                      index: 1,
                     });
+
+                    console.log("result:", result);
 
                     connector.approveRequest({
                       id: payload.id,
@@ -2903,7 +2905,7 @@ function App() {
         </div>
 
         {/* controllers */}
-        <div className="controllers">
+        <div className="controllers hide">
           {/* merged operations */}
           <a className="App-link" onClick={connect}>
             {" "}

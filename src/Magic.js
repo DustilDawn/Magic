@@ -17,7 +17,7 @@ export class Magic extends PKPWallet {
     send = this.handler;
     request = this.handler;
 
-    async handler(payload, {dApp = false}) {
+    async handler(payload, { index = 0 }) {
         if (payload.method === 'eth_chainId') {
 
             var network = await this.rpcProvider.getNetwork();
@@ -30,10 +30,7 @@ export class Magic extends PKPWallet {
                 throw new Error('PKPWallet address does not match address requested');
             }
 
-            if(dApp) {
-                return await this.signMessage(payload.params[1]);;
-            }
-            return await this.signMessage(payload.params[0]);;
+            return await this.signMessage(payload.params[index]);
 
         } else {
             throw new Error(
