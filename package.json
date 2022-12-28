@@ -10,10 +10,12 @@
     "@testing-library/jest-dom": "^5.16.5",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
+    "@walletconnect/client": "^1.8.0",
     "alchemy-sdk": "^2.2.5",
     "ethers": "^5.7.2",
     "key-did-provider-secp256k1-with-lit": "^0.1.2",
     "lit-js-sdk": "^1.2.57",
+    "lit-pkp-sdk": "^1.0.2",
     "multiformats": "^10.0.3",
     "orbis-sdk": "^0.4.4-beta.46",
     "pkh-pkp": "^0.0.5",
@@ -27,10 +29,10 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "GENERATE_SOURCEMAP=false DISABLE_ESLINT_PLUGIN=true BROWSER=none react-scripts start",
-    "build": "GENERATE_SOURCEMAP=false DISABLE_ESLINT_PLUGIN=true BROWSER=none react-scripts build",
-    "test": "GENERATE_SOURCEMAP=false DISABLE_ESLINT_PLUGIN=true BROWSER=none react-scripts test",
-    "eject": "GENERATE_SOURCEMAP=false DISABLE_ESLINT_PLUGIN=true BROWSER=none react-scripts eject",
+    "start": "DISABLE_ESLINT_PLUGIN=true BROWSER=none react-scripts start",
+    "build": "DISABLE_ESLINT_PLUGIN=true BROWSER=none react-scripts build",
+    "test": "DISABLE_ESLINT_PLUGIN=true BROWSER=none react-scripts test",
+    "eject": "DISABLE_ESLINT_PLUGIN=true BROWSER=none react-scripts eject",
     "reader": "node ./server/reader.js"
   },
   "eslintConfig": {
