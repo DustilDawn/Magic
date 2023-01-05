@@ -13,7 +13,7 @@ Experience the convenience and power of MagicWallet.me – try it out today!
 1. *PKP & Stream Ownership*: PKPs are created with DID PKH and can own ceramic streams through the Orbis Protocol.
 - **Orbis Protocol Integration** - The "Orbis Protocol" is fully integrated, allowing you to use your "PKP" to access and execute all of its available functions. These actions can be performed by authorized addresses with the necessary permissions.
     
-    ![Untitled](https://s3-us-west-2.amazonaws.com/secure.notion-static.com/407ff7d7-fd5c-4f2c-a1fc-674bdf64911e/Untitled.png)
+    ![Untitled]([https://s3-us-west-2.amazonaws.com/secure.notion-static.com/407ff7d7-fd5c-4f2c-a1fc-674bdf64911e/Untitled.png](https://i.ibb.co/5WFxP3Z/Untitled.png))
     
 - *PKP Access Notification* - When a PKP owner grants access to a PKP to another address, there is currently no way to get this information and determine whether or not you have been granted permission to use the PKP. To add this capability, a message with a specific payload will be sent through the "Orbis.club DM" from the granter to notify the user. The grantee will then look for authorization messages, which contain the permitted PKPs, and the user will be able to use them on the dashboard. This process allows for automatic updates to the dashboard whenever access to a PKP has been granted.
 
