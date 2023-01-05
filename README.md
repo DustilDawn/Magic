@@ -1,3 +1,5 @@
+# Magic Wallet
+
 One Account, multiple seed-less wallets.
 
 Introducing MagicWallet, the ultimate tool for stream ownership and seamless integration with the Orbis Protocol. With our app, you can use your Programmable Key Pairs (PKP) to access and execute all the functions of the Orbis Protocol, including sending transactions through a message monitoring system and connecting to other dApps like Uniswap to trade assets.
@@ -7,6 +9,8 @@ Our app also offers PKP access notification, which will be displayed in the gran
 It is designed to be a centralized platform where users can perform various actions based on their context, and it welcomes new developers to develop their own apps.
 
 Experience the convenience and power of MagicWallet.me – try it out today!
+
+![](https://i.ibb.co/g7t50Kk/untitled.png)
 
 
 # Features
