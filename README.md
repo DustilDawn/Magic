@@ -10,6 +10,8 @@ It is designed to be a centralized platform where users can perform various acti
 
 Experience the convenience and power of MagicWallet.me – try it out today!
 
+https://magicwallet.me/
+
 ![](https://i.ibb.co/g7t50Kk/untitled.png)
 
 
